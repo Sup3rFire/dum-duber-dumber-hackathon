@@ -49,15 +49,24 @@ async function renderModeSelectorFromStorage() {
   renderModeSelector(await currentMode());
 }
 
+function renderStatValue(el, value) {
+  const count = Number(value) || 0;
+  el.textContent = count.toLocaleString();
+  // A five-digit total renders as "10,000", which is too wide at the regular
+  // display size. Keep it on one line while preserving the full value.
+  el.classList.toggle("compact", Math.abs(count) >= 10_000);
+  el.classList.toggle("compact-long", Math.abs(count) >= 1_000_000);
+}
+
 async function renderStats() {
   const s = await browser.storage.local.get("stats");
   const st = s.stats || {};
   // Tolerate the legacy { wordsBefore, wordsAfter } schema.
   const cut = st.wordsCut != null ? st.wordsCut : Math.max(0, (st.wordsBefore || 0) - (st.wordsAfter || 0));
   const added = st.wordsAdded || 0;
-  wordsCutEl.textContent = cut.toLocaleString();
-  wordsAddedEl.textContent = added.toLocaleString();
-  pagesEl.textContent = (st.pages || 0).toLocaleString();
+  renderStatValue(wordsCutEl, cut);
+  renderStatValue(wordsAddedEl, added);
+  renderStatValue(pagesEl, st.pages || 0);
 }
 
 async function hasApiKey() {

@@ -168,6 +168,39 @@
     ".see-less",
   ].join(",");
 
+  const LINKEDIN_EXPAND_SEL = '[data-testid="expandable-text-button"]';
+  const isLinkedIn = /(^|\.)linkedin\.com$/i.test(HOST);
+  // A feed re-render can replace a button with a fresh DOM node, so remember
+  // clicks by element rather than globally. This expands newly loaded posts
+  // while ensuring a later scan never turns an existing post back into a clamp.
+  const clickedLinkedInExpandButtons = new WeakSet();
+
+  function isCollapsedLinkedInExpandButton(button) {
+    if (button.getAttribute("aria-expanded") === "true") return false;
+    const label = [button.getAttribute("aria-label"), button.textContent]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return !/\b(?:less|collapse)\b/.test(label);
+  }
+
+  // LinkedIn keeps the rest of a post behind this control. Open all collapsed
+  // posts before collecting prose so the model always receives the full text.
+  // Returns true when React needs a frame to render at least one expanded post.
+  function expandLinkedInPosts() {
+    if (!isLinkedIn) return false;
+
+    let expanded = false;
+    for (const button of document.querySelectorAll(LINKEDIN_EXPAND_SEL)) {
+      if (clickedLinkedInExpandButtons.has(button)) continue;
+      clickedLinkedInExpandButtons.add(button);
+      if (!isCollapsedLinkedInExpandButton(button)) continue;
+      button.click();
+      expanded = true;
+    }
+    return expanded;
+  }
+
   // Full text of a block, INCLUDING any part hidden behind a "…see more" clamp.
   // innerText can stop at the truncation point; textContent has the whole post,
   // so when a block carries an expand toggle we read a cleaned clone instead
@@ -445,6 +478,11 @@
   // ---------- main scan ----------
   async function scan() {
     if (!active) return;
+    if (expandLinkedInPosts()) {
+      // Let LinkedIn commit the expanded post body before it enters collection.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (!active) return;
+    }
     const els = collectBlocks();
     if (SCOPE_SEL) {
       log("scoped regions on page:", document.querySelectorAll(SCOPE_SEL).length);
