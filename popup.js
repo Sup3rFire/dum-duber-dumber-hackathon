@@ -1,25 +1,13 @@
 const hostEl = document.getElementById("host");
-const spectrumEl = document.getElementById("spectrum");
-const modeLabelEl = document.getElementById("modeLabel");
-const modeSubEl = document.getElementById("modeSub");
+const modeSelectorEl = document.getElementById("modeSelector");
+const modeInputs = [...document.querySelectorAll('input[name="mode"]')];
 const wordsCutEl = document.getElementById("wordsCut");
 const wordsAddedEl = document.getElementById("wordsAdded");
 const pagesEl = document.getElementById("pages");
 
 let host = null;
 
-// Slider position (0..2) -> mode, laid out as a spectrum around Normal.
-const MODES = [
-  "crap", // 0 — pile on the crap
-  "off", // 1 — untouched
-  "decrap", // 2 — cut the crap
-];
-
-const MODE_META = {
-  crap: { label: "Pile on the Crap", sub: "Turns plain text into a corporate saga", cls: "crap" },
-  off: { label: "Normal", sub: "Leaves the page untouched", cls: "" },
-  decrap: { label: "Cut the Crap", sub: "Just the one honest sentence", cls: "decrap" },
-};
+const MODES = ["crap", "off", "decrap"];
 
 // Map any stored value (including legacy 5-stop keys and the old boolean) to a
 // current mode key.
@@ -33,16 +21,9 @@ function normalizeMode(v) {
   return "off";
 }
 
-function indexOfMode(m) {
-  const i = MODES.indexOf(m);
-  return i === -1 ? 1 : i;
-}
-
-function renderModeLabel(mode) {
-  const meta = MODE_META[mode] || MODE_META.off;
-  modeLabelEl.textContent = meta.label;
-  modeSubEl.textContent = meta.sub;
-  modeLabelEl.className = "mode-label" + (meta.cls ? " " + meta.cls : "");
+function renderModeSelector(mode) {
+  const selected = modeInputs.find((input) => input.value === mode) || modeInputs[1];
+  selected.checked = true;
 }
 
 function hostnameOf(url) {
@@ -64,10 +45,8 @@ async function currentMode() {
   return host ? normalizeMode(state[host]) : "off";
 }
 
-async function renderSlider() {
-  const mode = await currentMode();
-  spectrumEl.value = String(indexOfMode(mode));
-  renderModeLabel(mode);
+async function renderModeSelectorFromStorage() {
+  renderModeSelector(await currentMode());
 }
 
 async function renderStats() {
@@ -93,32 +72,28 @@ async function setMode(mode) {
   await browser.storage.local.set({ siteState: state });
 }
 
-// Live label update while dragging (before commit).
-spectrumEl.addEventListener("input", () => {
-  renderModeLabel(MODES[Number(spectrumEl.value)]);
-});
+modeInputs.forEach((input) => {
+  input.addEventListener("change", async () => {
+    if (!input.checked) return;
 
-// Commit on release / change.
-spectrumEl.addEventListener("change", async () => {
-  if (!host) {
-    spectrumEl.value = "1";
-    renderModeLabel("off");
-    return;
-  }
+    if (!host) {
+      renderModeSelector("off");
+      return;
+    }
 
-  const mode = MODES[Number(spectrumEl.value)];
+    const mode = input.value;
 
-  // Any active mode needs a key. Missing key -> bounce to Settings, snap to Normal.
-  if (mode !== "off" && !(await hasApiKey())) {
-    spectrumEl.value = "1";
-    renderModeLabel("off");
-    browser.runtime.openOptionsPage();
-    window.close();
-    return;
-  }
+    // Any active mode needs a key. Missing key -> bounce to Settings, snap to Normal.
+    if (mode !== "off" && !(await hasApiKey())) {
+      renderModeSelector("off");
+      browser.runtime.openOptionsPage();
+      window.close();
+      return;
+    }
 
-  await setMode(mode);
-  renderModeLabel(mode);
+    await setMode(mode);
+    renderModeSelector(mode);
+  });
 });
 
 document.getElementById("openOptions").addEventListener("click", () => {
@@ -134,7 +109,7 @@ browser.storage.onChanged.addListener((changes, area) => {
 (async function init() {
   host = await getActiveHost();
   hostEl.textContent = host || "(unsupported page)";
-  if (!host) spectrumEl.disabled = true;
-  await renderSlider();
+  if (!host) modeSelectorEl.disabled = true;
+  await renderModeSelectorFromStorage();
   await renderStats();
 })();
