@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cut the Crap",
   "version": "0.1.0",
-  "description": "A three-way toggle for any webpage: Decrapify collapses bloated, evasive writing into one blunt honest sentence, Normal leaves it untouched, or Crapify buries plain text under LinkedIn theatrics, corporate buzzwords and brainrot.",
+  "description": "A browser extension that rewrites any webpage to be brutally honest or hilariously corporate.",
   "browser_specific_settings": {
     "gecko": {
       "id": "cut-the-crap@superfi.re",
