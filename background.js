@@ -26,10 +26,13 @@ function hash(str) {
   return (h >>> 0).toString(36);
 }
 
-// The mode is part of the key: the same text crapified vs decrapified (or at a
-// different intensity) must never collide in the cache.
+// The mode is part of the key: the same text crapified vs decrapified must
+// never collide in the cache. Text is whitespace-normalized first so the same
+// post reloaded with slightly reflowed whitespace still hits the persistent
+// cache instead of paying for another call.
+const fingerprint = (t) => (t || "").replace(/\s+/g, " ").trim();
 function cacheKey(model, mode, text) {
-  return CACHE_PREFIX + hash(model + "\u0000" + mode + "\u0000" + text);
+  return CACHE_PREFIX + hash(model + "\u0000" + mode + "\u0000" + fingerprint(text));
 }
 
 async function cacheGet(key) {

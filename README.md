@@ -30,6 +30,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 - Every site starts on **Normal**. The chosen mode is remembered per domain (like Dark Reader). Stored as a string: `off` / `crap` / `decrap` (legacy values — the old boolean `true` and the old 5-stop keys — are folded onto these).
 - On any non-Normal mode, the content script finds prose blocks (≥150 chars), batches them to the background worker → OpenAI (with that mode's voice) → swaps the text in place as each batch resolves. No page refresh.
+- While a block is in flight it shows a pulsing on-brand placeholder (`🔪 cutting the crap…` / `🍳 piling on the crap…`) so the wait reads as activity; the real original is stashed first and restored if the model returns nothing, errors, or leaves the text unchanged.
 - Switching mode (including back to Normal) restores the original text first, so e.g. going from decrapify to crapify always starts from the real source text, not already-rewritten DOM.
 - The popup shows lifetime totals: **words cut** (decrapify), **words piled on** (crapify), and pages processed.
 
@@ -60,7 +61,7 @@ The examples are embedded inside each system prompt; the actual request uses a J
 - **Reversible**: originals are kept in memory and restored on toggle-off.
 - **Dynamic pages**: a `MutationObserver` catches lazily loaded / infinite-scroll content; it is guarded so the extension's own writes don't retrigger it.
 - **Batched + capped**: ~6 blocks/request, ≤3 concurrent, ≤100 blocks/page.
-- **Cached**: identical text (per model) is cached in `storage.local`, so re-running on the same page is instant and free.
+- **Cached (two layers, both keyed by a whitespace-normalized fingerprint)**: the content script keeps a per-session `mode → source → output` map plus a reverse `output → source` map, so scrolling a virtualized feed (Reddit/LinkedIn) that re-mounts a post re-applies the stored result with no network call, and a re-mounted node still showing our own text is traced back to its source rather than transformed again ("crap on crap"). These survive slider changes (keyed by mode), so flipping between crapify/decrapify/normal never recomputes. Underneath, the background worker also caches every transformation in `storage.local`, so the same text stays free across reloads.
 - **Error isolation**: one batch failing leaves those blocks untouched; the rest of the page still processes. No API key → the toggle sends you to Settings instead of failing silently.
 - **Privacy**: page text is sent to OpenAI only for sites you switch on (default off).
 
