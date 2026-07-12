@@ -1,6 +1,6 @@
 # Cut the Crap / Pile on the Crap
 
-A browser extension with a **spectrum slider** that rewrites the prose on any page in either direction:
+A browser extension with a **three-way mode selector** that rewrites the prose on any page in either direction:
 
 ```
   crapify      NORMAL      decrapify
@@ -22,7 +22,7 @@ Firefox-first (Manifest V3), portable to Chrome with minimal changes.
 1. Go to `about:debugging` → **This Firefox** → **Load Temporary Add-on…**
 2. Select `manifest.json` in this folder.
 3. Open the extension's **Settings** (via the popup's "Settings / API key" link) and paste your OpenAI API key. Model defaults to `gpt-4o-mini`.
-4. Visit a page, click the toolbar icon, and drag the **spectrum slider** off Normal — left to pile on the crap, right to cut it.
+4. Visit a page, click the toolbar icon, then select **Crapify**, **Normal**, or **Decrapify** for that site.
 
 Note: temporary add-ons are removed when Firefox restarts — re-load before each session.
 
@@ -42,7 +42,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 | `content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode |
 | `prompt.js` | **The voices** — two mode prompts (cut/pile) + few-shot examples. Iterate on the humor here. |
 | `background.js` | OpenAI calls (mode-aware), response cache, lifetime stats |
-| `popup.html` / `popup.js` | Per-site spectrum slider + lifetime stats |
+| `popup.html` / `popup.js` | Per-site mode selector + lifetime stats |
 | `options.html` / `options.js` | OpenAI API key + model |
 | `lib/browser-polyfill.js` | `browser.*` promise API (Firefox native; needed for Chrome) |
 | `icons/` | Placeholder icons (replace later) |
