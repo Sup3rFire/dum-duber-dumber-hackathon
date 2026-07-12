@@ -12,6 +12,7 @@
   "permissions": ["storage", "activeTab", "tabs", "scripting"],
   "host_permissions": ["https://api.openai.com/*"],
   "background": {
+    "service_worker": "sw.js",
     "scripts": ["lib/browser-polyfill.js", "prompt.js", "background.js"]
   },
   "content_scripts": [
