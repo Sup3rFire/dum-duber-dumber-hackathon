@@ -28,112 +28,101 @@
         word-break: break-all;
       }
 
-      /* ---- current mode label ---- */
-      .mode-label {
-        text-align: center;
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 4px;
-        min-height: 18px;
-      }
-      .mode-sub {
-        text-align: center;
-        font-size: 11px;
-        color: var(--muted);
-        margin-bottom: 12px;
-        min-height: 14px;
-      }
-      .mode-label.crap {
-        color: var(--crap);
-      }
-      .mode-label.decrap {
-        color: var(--accent);
-      }
-
-      /* ---- spectrum slider ---- */
-      .spectrum {
-        margin: 0 2px 6px;
-      }
-      input[type="range"] {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 100%;
-        height: 6px;
-        border-radius: 6px;
-        background: linear-gradient(
-          to right,
-          var(--crap) 0%,
-          #d9d9d9 50%,
-          var(--accent) 100%
-        );
-        outline: none;
+      /* ---- mode selector ---- */
+      .mode-selector {
+        border: 0;
         margin: 0;
+        padding: 0;
       }
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #fff;
-        border: 2px solid var(--ink);
-        cursor: pointer;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
-      input[type="range"]::-moz-range-thumb {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: #fff;
-        border: 2px solid var(--ink);
-        cursor: pointer;
+      .mode-options {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid #b7b7b7;
+        border-radius: 4px;
       }
-      .ticks {
-        display: flex;
-        justify-content: space-between;
-        font-size: 9px;
+      .mode-options input {
+        position: absolute;
+        opacity: 0;
+      }
+      .mode-option {
+        min-width: 0;
+        padding: 8px 4px;
+        border-left: 1px solid #b7b7b7;
         color: var(--muted);
-        margin-top: 6px;
-        line-height: 1.2;
-      }
-      .ticks span {
-        flex: 1;
-        text-align: center;
-      }
-      .ticks span:first-child {
-        text-align: left;
-      }
-      .ticks span:last-child {
-        text-align: right;
-      }
-      .ends {
-        display: flex;
-        justify-content: space-between;
-        font-size: 10px;
+        cursor: pointer;
+        font-size: 11px;
         font-weight: 700;
-        margin-top: 8px;
+        line-height: 1;
+        text-align: center;
+        transition: background-color 120ms ease, color 120ms ease;
+        user-select: none;
       }
-      .ends .crap {
-        color: var(--crap);
+      .mode-options input:first-child + .mode-option {
+        border-left: 0;
       }
-      .ends .decrap {
-        color: var(--accent);
+      #modeCrap:checked + .mode-option {
+        background: var(--crap);
+        color: #fff;
+      }
+      #modeNormal:checked + .mode-option {
+        background: var(--ink);
+        color: #fff;
+      }
+      #modeDecrap:checked + .mode-option {
+        background: var(--accent);
+        color: var(--ink);
+      }
+      .mode-options input:focus-visible + .mode-option {
+        position: relative;
+        outline: 2px solid #3b78e7;
+        outline-offset: -2px;
+        z-index: 1;
+      }
+      .mode-options input:disabled + .mode-option {
+        cursor: not-allowed;
+        opacity: 0.45;
       }
 
       /* ---- stats ---- */
       .stats {
         border-top: 1px solid #eee;
         padding-top: 12px;
-        margin-top: 18px;
+        margin-top: 16px;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
       }
       .stat {
-        display: flex;
-        justify-content: space-between;
-        font-size: 13px;
-        margin: 6px 0;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.25;
+        text-align: center;
       }
       .stat .val {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--ink);
+        font-size: 28px;
         font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        overflow-wrap: anywhere;
       }
       .stat .cut {
         color: var(--accent);
@@ -162,27 +151,25 @@
     <h1>Cut the Crap</h1>
     <div class="host" id="host">—</div>
 
-    <div class="mode-label" id="modeLabel">Normal</div>
-    <div class="mode-sub" id="modeSub">Leaves the page untouched</div>
-
-    <div class="spectrum">
-      <input type="range" id="spectrum" min="0" max="2" step="1" value="1" />
-      <div class="ticks">
-        <span>Crapify</span>
-        <span>Normal</span>
-        <span>Decrapify</span>
+    <fieldset class="mode-selector" id="modeSelector">
+      <legend class="sr-only">Mode</legend>
+      <div class="mode-options">
+        <input type="radio" id="modeCrap" name="mode" value="crap" />
+        <label class="mode-option" for="modeCrap">Crapify</label>
+        <input type="radio" id="modeNormal" name="mode" value="off" checked />
+        <label class="mode-option" for="modeNormal">Normal</label>
+        <input type="radio" id="modeDecrap" name="mode" value="decrap" />
+        <label class="mode-option" for="modeDecrap">Decrapify</label>
       </div>
-      <div class="ends">
-        <span class="crap">← Pile on the Crap</span>
-        <span class="decrap">Cut the Crap →</span>
-      </div>
-    </div>
+    </fieldset>
 
     <div class="stats">
       <div class="stats-title">Lifetime</div>
-      <div class="stat"><span>Words cut</span><span class="val cut" id="wordsCut">0</span></div>
-      <div class="stat"><span>Words piled on</span><span class="val add" id="wordsAdded">0</span></div>
-      <div class="stat"><span>Pages processed</span><span class="val" id="pages">0</span></div>
+      <div class="stat-grid">
+        <div class="stat"><span class="val cut" id="wordsCut">0</span><span>Words cut</span></div>
+        <div class="stat"><span class="val add" id="wordsAdded">0</span><span>Words piled on</span></div>
+        <div class="stat"><span class="val" id="pages">0</span><span>Pages processed</span></div>
+      </div>
     </div>
 
     <div class="footer">
