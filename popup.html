@@ -122,15 +122,18 @@
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.04em;
         line-height: 1;
-        overflow-wrap: anywhere;
-      }
-      .stat .val.compact {
-        font-size: 20px;
-        letter-spacing: -0.06em;
         white-space: nowrap;
       }
-      .stat .val.compact-long {
+      /* All three values share one size tier, chosen from whichever value is
+         currently the widest, so they read as a proportional set instead of
+         one giant number beside two shrunken ones. */
+      .stat-grid.tier-md .val {
+        font-size: 21px;
+        letter-spacing: -0.05em;
+      }
+      .stat-grid.tier-sm .val {
         font-size: 16px;
+        letter-spacing: -0.06em;
       }
       .stat .cut {
         color: var(--accent);

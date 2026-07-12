@@ -55,7 +55,8 @@
   // length floor and get rewritten.
   const EXCLUDE_CLOSEST =
     "pre,code,kbd,samp,nav,textarea,[contenteditable],[contenteditable='true']," +
-    '[role="navigation"],[role="menu"],[role="menubar"],[role="tablist"],[role="banner"]';
+    '[role="navigation"],[role="menu"],[role="menubar"],[role="tablist"],[role="banner"],' +
+    ".ctc-out"; // our own injected overlay text — never re-transform it
 
   // A block that is mostly hyperlink/button text is navigation (nav bar, menu,
   // breadcrumb, footer link list, tag cloud), not prose. Real prose has at most a
@@ -117,6 +118,14 @@
   const SCOPE_SEL = SCOPE ? SCOPE.include.join(",") : null;
   if (SCOPE_SEL) log("scoped site — only transforming:", SCOPE_SEL);
 
+  // Scoped feeds (LinkedIn) are React-managed: overwriting a post's own DOM makes
+  // its native controls (the "see more" toggle) inert once we restore, and the
+  // site's CSS line-clamp truncates whatever we write. So on these sites we swap
+  // NON-DESTRUCTIVELY — hide the original block and render our text in a sibling
+  // node we own, leaving React's subtree untouched. Elsewhere the simple in-place
+  // rewrite is fine and looks native, so we keep it.
+  const NONDESTRUCTIVE = !!SCOPE;
+
   // On a scoped site, a block only qualifies if it sits inside an allowed region.
   function inScope(el) {
     if (!SCOPE_SEL) return true;
@@ -166,6 +175,34 @@
   const resultCache = new Map(); // `${mode}\u0000${fp(src)}` -> transformed text
   const outputs = new Map(); // fp(text WE produced) -> the source it came from
   const countedOriginals = new Set(); // `${mode}\u0000${fp(src)}` already logged (verbose swap log gate)
+
+  // On an endless virtualized feed these structures would otherwise grow forever
+  // — the biggest offender being `originals`, which STRONGLY holds every element
+  // it has ever snapshotted, pinning detached DOM subtrees in memory until the
+  // tab is starved and the feed crashes. Bound them: prune snapshots whose node
+  // has been unmounted, and evict the oldest entries from the text caches once
+  // they pass a ceiling (Map preserves insertion order, so we drop from the
+  // front). Evicting a text-cache entry only costs a cache miss later, never
+  // correctness — a re-encounter simply pays for one more model call.
+  const MAX_CACHE = 1500;
+  function capMap(map) {
+    while (map.size > MAX_CACHE) map.delete(map.keys().next().value);
+  }
+  function capSet(set) {
+    while (set.size > MAX_CACHE) set.delete(set.values().next().value);
+  }
+  // Drop restore snapshots for nodes the site has unmounted. Safe because a
+  // detached node is gone from the page (nothing to restore); if the feed later
+  // re-mounts the same text as a fresh node, the `outputs` fingerprint sweep and
+  // `resultCache` still recover it without a network call.
+  function pruneOriginals() {
+    for (const el of originals.keys()) {
+      if (!el.isConnected) {
+        removeOverlay(el); // drop any sibling standing in for the unmounted node
+        originals.delete(el);
+      }
+    }
+  }
 
   // Whitespace-normalized fingerprint: the single source of identity for a block.
   const fp = (t) => (t || "").replace(/\s+/g, " ").trim();
@@ -217,6 +254,18 @@
     return 0; // intersecting the viewport
   }
 
+  // On chrome-heavy scoped feeds (LinkedIn) we only work on blocks in — or just
+  // below — the viewport: "decrapify what's on my feed". Off-screen posts are
+  // transformed as the reader scrolls them into view (each scroll fires a scan),
+  // so we never work ahead down an infinite feed, and never touch far-off posts
+  // whose height change would shift the page under the reader.
+  const WORK_LOOKAHEAD = 0.5; // viewport-heights of below-fold lookahead
+  function withinWorkWindow(el) {
+    if (!SCOPE) return true; // unscoped sites: the whole page is fair game
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    return viewportDistance(el) <= WORK_LOOKAHEAD * vh;
+  }
+
   // Cheap length gate — textContent avoids the layout reflow that innerText forces.
   function tlen(el) {
     const t = el.textContent;
@@ -234,69 +283,16 @@
     ".see-less",
   ].join(",");
 
-  const LINKEDIN_EXPAND_SEL = '[data-testid="expandable-text-button"]';
-  const isLinkedIn = /(^|\.)linkedin\.com$/i.test(HOST);
-  // A feed re-render can replace a button with a fresh DOM node, so remember
-  // clicks by element rather than globally. This expands newly loaded posts
-  // while ensuring a later scan never turns an existing post back into a clamp.
-  const clickedLinkedInExpandButtons = new WeakSet();
-
-  function isCollapsedLinkedInExpandButton(button) {
-    if (button.getAttribute("aria-expanded") === "true") return false;
-    const label = [button.getAttribute("aria-label"), button.textContent]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return !/\b(?:less|collapse)\b/.test(label);
-  }
-
-  // A button is worth expanding once it's within one viewport of the reader.
-  // Clicking only nearby posts (rather than every button in the feed) is what
-  // stops the page from being dragged to the bottom; the rest expand naturally
-  // as the MutationObserver rescans on scroll.
-  function isNearLinkedInExpandButton(button) {
-    const r = button.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return false; // detached / hidden
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    return r.bottom >= -vh && r.top <= vh * 2;
-  }
-
-  // LinkedIn keeps the rest of a post behind this control. Open collapsed posts
-  // near the viewport before collecting prose so the model receives the full
-  // text. A programmatic .click() focuses the button and the browser scrolls
-  // that focused element into view, so we (a) only click buttons already near
-  // the reader and (b) pin the scroll offset across the pass — otherwise the
-  // feed jumps to whichever post was expanded last.
-  // Returns true when React needs a frame to render at least one expanded post.
-  function expandLinkedInPosts() {
-    if (!isLinkedIn) return false;
-
-    const scroller = document.scrollingElement || document.documentElement;
-    const sx = scroller.scrollLeft;
-    const sy = scroller.scrollTop;
-    let expanded = false;
-    for (const button of document.querySelectorAll(LINKEDIN_EXPAND_SEL)) {
-      if (clickedLinkedInExpandButtons.has(button)) continue;
-      // Don't mark far-off buttons as seen — they should still expand once the
-      // reader scrolls them into range on a later scan.
-      if (!isNearLinkedInExpandButton(button)) continue;
-      clickedLinkedInExpandButtons.add(button);
-      if (!isCollapsedLinkedInExpandButton(button)) continue;
-      button.click();
-      expanded = true;
-    }
-    if (expanded && (scroller.scrollLeft !== sx || scroller.scrollTop !== sy)) {
-      scroller.scrollLeft = sx;
-      scroller.scrollTop = sy;
-    }
-    return expanded;
-  }
-
   // Full text of a block, INCLUDING any part hidden behind a "…see more" clamp.
-  // innerText can stop at the truncation point; textContent has the whole post,
-  // so when a block carries an expand toggle we read a cleaned clone instead
-  // (toggle removed, <br> turned back into newlines). Otherwise innerText is
-  // preferred — it preserves spacing between block elements that textContent drops.
+  // This is why we DON'T click "see more" on LinkedIn: a collapsed post keeps its
+  // whole text in the DOM behind a CSS clamp, so we can read it directly. innerText
+  // stops at the truncation point (it respects the clamp), but textContent has the
+  // whole post — so when a block carries an expand toggle we read a cleaned clone
+  // instead (toggle removed, <br> turned back into newlines). We transform that
+  // full text and overwrite the block, which also drops the clamp/"see more". No
+  // programmatic clicking means no focus-scroll, no feed march, no jumping.
+  // Otherwise innerText is preferred — it preserves spacing between block elements
+  // that textContent drops.
   function fullText(el) {
     if (!(el.querySelector && el.querySelector(EXPAND_SEL))) {
       return (el.innerText || "").trim();
@@ -344,6 +340,7 @@
       if (tlen(el) < minChars()) continue;
       if (hasQualifyingChild(el)) continue; // not the minimal block
       if (!isVisible(el)) continue;
+      if (!withinWorkWindow(el)) continue; // scoped feed: stay within the viewport
       if (isOversizedText(el)) continue; // headline/hero text — rewriting wrecks layout
       if (isLinkHeavy(el)) continue; // nav bar / menu / link list — not prose
       if (fullText(el).length < minChars()) continue; // accurate check (counts hidden "see more" text)
@@ -459,13 +456,62 @@
     });
   }
 
-  // Put an element back to its pre-transform state. We usually have the exact
-  // original markup (`html`); for the rare case where we only recovered the
-  // source text (a re-mount that arrived already showing our output), we render
-  // that text instead so "Normal" is never left with transformed content.
+  // ---- non-destructive overlay (scoped React feeds) ----
+  // el -> the sibling node currently standing in for it while swapped.
+  const overlays = new WeakMap();
+  const OVERLAY_STYLE_PROPS = [
+    "fontFamily", "fontSize", "fontWeight", "fontStyle",
+    "lineHeight", "letterSpacing", "color", "textAlign",
+  ];
+  // Make the overlay visually indistinguishable from the post's body text by
+  // copying the block's own computed text styling onto it.
+  function copyTextStyles(src, dst) {
+    const cs = getComputedStyle(src);
+    for (const p of OVERLAY_STYLE_PROPS) dst.style[p] = cs[p];
+    dst.style.whiteSpace = "pre-wrap"; // keep our line breaks
+    dst.dir = src.dir || "auto";
+  }
+  // Render `text` for `el` WITHOUT touching el's subtree: hide the original and
+  // put the text in an owned sibling. A loader->result transition reuses the same
+  // node in place. `loading` reserves the original height so nothing reflows
+  // until the result lands. React's subtree (and its live "see more") is left
+  // completely intact, so restoring is a clean, lossless reveal.
+  function renderOverlay(el, text, loading) {
+    let node = overlays.get(el);
+    if (!node) {
+      const h = el.getBoundingClientRect().height; // measure before hiding
+      node = document.createElement("div");
+      node.className = "ctc-out";
+      copyTextStyles(el, node);
+      el.insertAdjacentElement("afterend", node);
+      if (loading && h) node.style.minHeight = h + "px";
+      overlays.set(el, node);
+      el.style.display = "none"; // sibling stands in for the hidden original
+    }
+    if (!loading) node.style.minHeight = ""; // result landed — release the freeze
+    node.classList.toggle(LOADING_CLASS, !!loading);
+    setBlockText(node, text);
+    return node;
+  }
+  // Undo renderOverlay: drop our sibling and reveal the untouched original.
+  function removeOverlay(el) {
+    const node = overlays.get(el);
+    if (node) {
+      node.remove();
+      overlays.delete(el);
+    }
+    el.style.display = "";
+  }
+
+  // Put an element back to its pre-transform state. For scoped overlays this just
+  // reveals the original (which was never modified). For the in-place path we
+  // usually have the exact original markup (`html`); for the rare case where we
+  // only recovered the source text (a re-mount that arrived already showing our
+  // output), we render that text instead so "Normal" is never left transformed.
   function restoreEl(el, snap) {
     if (!snap) return;
-    if (snap.html != null) el.innerHTML = snap.html;
+    if (snap.overlay) removeOverlay(el);
+    else if (snap.html != null) el.innerHTML = snap.html;
     else if (snap.text != null) setBlockText(el, snap.text);
   }
 
@@ -490,7 +536,21 @@
     const label = LOADING_LABEL[mode] || "🍳 cooking";
     withWriteGuard(() => {
       for (const b of blocks) {
+        if (NONDESTRUCTIVE) {
+          // Non-destructive: stand an overlay in for the post; never touch it.
+          if (!originals.has(b.el)) originals.set(b.el, { overlay: true });
+          renderOverlay(b.el, label + "…", true);
+          b.el.setAttribute(MARK, "1");
+          continue;
+        }
         if (!originals.has(b.el)) originals.set(b.el, { html: b.el.innerHTML });
+        // Reserve the block's current height for the duration of the loader.
+        // Otherwise a tall post collapsing to a one-line "cooking" placeholder
+        // (and then re-growing to the result) reflows the page twice mid-scroll.
+        // With the height pinned, geometry stays put until the final text lands
+        // and we clear it — a single, anchored reflow instead of a dance.
+        const h = b.el.getBoundingClientRect().height;
+        if (h) b.el.style.minHeight = h + "px";
         b.el.setAttribute(MARK, "1");
         b.el.classList.add(LOADING_CLASS);
         b.el.textContent = label + "…";
@@ -506,7 +566,10 @@
     const vw = window.innerWidth || document.documentElement.clientWidth;
     const vh = window.innerHeight || document.documentElement.clientHeight;
     const x = Math.min(vw * 0.5, vw - 1);
-    for (const frac of [0.3, 0.5, 0.15, 0.7]) {
+    // Prefer an anchor near the TOP of the viewport: hold the reader's top line
+    // steady so height changes lower down reflow naturally (no perceived jump),
+    // while changes above the fold are corrected against it.
+    for (const frac of [0.12, 0.3, 0.5, 0.7]) {
       let el = document.elementFromPoint(x, Math.round(vh * frac));
       while (el && el !== document.body && el !== document.documentElement) {
         const pos = getComputedStyle(el).position;
@@ -520,6 +583,19 @@
     return null;
   }
 
+  // Correct scrollTop so a previously-picked anchor element sits at the same
+  // screen offset it did when captured — cancelling any reflow (a rewrite, or an
+  // async "see more" expansion) that happened above it. Safe to call after a
+  // frame has passed: it re-measures live.
+  function reanchor(anchor) {
+    if (!anchor || !anchor.el.isConnected) return;
+    const delta = anchor.el.getBoundingClientRect().top - anchor.top;
+    if (delta) {
+      const scroller = document.scrollingElement || document.documentElement;
+      scroller.scrollTop += delta;
+    }
+  }
+
   function withWriteGuard(fn) {
     writing = true;
     if (observer) observer.disconnect();
@@ -531,13 +607,7 @@
     try {
       fn();
     } finally {
-      if (anchor && anchor.el.isConnected) {
-        const delta = anchor.el.getBoundingClientRect().top - anchor.top;
-        if (delta) {
-          const scroller = document.scrollingElement || document.documentElement;
-          scroller.scrollTop += delta;
-        }
-      }
+      reanchor(anchor);
       if (observer && active) observer.observe(document.body, OBS_OPTS);
       writing = false;
     }
@@ -558,13 +628,19 @@
 
     withWriteGuard(() => {
       for (const { b, next: rawNext, cached } of pairs) {
-        // If this block is showing the "cooking" loader, its current innerHTML is
-        // the placeholder — the true original was stashed in `originals` by
-        // beginLoading. `restoreOriginal` puts that real markup back.
-        const loading = b.el.classList.contains(LOADING_CLASS);
+        // "loading" = a placeholder is currently standing in for this block. In
+        // the overlay path that's an owned sibling node; in-place it's the
+        // cooking text inside the block (whose true original beginLoading stashed
+        // in `originals`). `restoreOriginal` reverts either back to the original.
+        const loading = NONDESTRUCTIVE
+          ? overlays.has(b.el)
+          : b.el.classList.contains(LOADING_CLASS);
         const restoreOriginal = () => {
           restoreEl(b.el, originals.get(b.el));
-          b.el.classList.remove(LOADING_CLASS);
+          if (!NONDESTRUCTIVE) {
+            b.el.classList.remove(LOADING_CLASS);
+            b.el.style.minHeight = ""; // release the height reserved during loading
+          }
         };
 
         if (rawNext == null) {
@@ -599,21 +675,28 @@
         resultCache.set(rkey(b.text), next);
         outputs.set(fp(next), b.text);
 
-        // If the element already displays exactly this output (e.g. a re-mounted
-        // copy that kept our text), don't rewrite — but still record how to get
-        // back to the source (as text), so switching to Normal reverts it.
-        if (!loading && fp(fullText(b.el)) === fp(next)) {
+        // (In-place path only) If the element already displays exactly this
+        // output — e.g. a re-mounted copy that kept our text — don't rewrite, but
+        // record how to get back to the source (as text) so Normal reverts it.
+        // The overlay path never writes into the block, so this can't happen there.
+        if (!NONDESTRUCTIVE && !loading && fp(fullText(b.el)) === fp(next)) {
           if (!originals.has(b.el)) originals.set(b.el, { text: b.text });
           b.el.setAttribute(MARK, "1");
           continue;
         }
 
-        // Only snapshot here when we didn't already (i.e. no loader was shown);
-        // otherwise `originals` already holds the true original, not the loader.
-        if (!originals.has(b.el)) originals.set(b.el, { html: b.el.innerHTML });
-        b.el.classList.remove(LOADING_CLASS);
+        // Snapshot how to restore, only if we didn't already (a loader would have).
+        if (!originals.has(b.el)) {
+          originals.set(b.el, NONDESTRUCTIVE ? { overlay: true } : { html: b.el.innerHTML });
+        }
+        if (NONDESTRUCTIVE) {
+          renderOverlay(b.el, next, false); // reuses the loader node if present
+        } else {
+          b.el.classList.remove(LOADING_CLASS);
+          b.el.style.minHeight = ""; // release the height reserved during loading
+          setBlockText(b.el, next);
+        }
         b.el.setAttribute(MARK, "1");
-        setBlockText(b.el, next);
         swapped++;
 
         const key = rkey(b.text);
@@ -634,6 +717,11 @@
     });
 
     if (swapped) log("applied", swapped, "swap(s)");
+
+    // Keep the session-lived caches from growing without bound on a long feed.
+    capMap(resultCache);
+    capMap(outputs);
+    capSet(countedOriginals);
   }
 
   // Adapter for a model response batch: map ids back to blocks, then apply.
@@ -647,21 +735,26 @@
     // nothing to revert; we just stop it from being processed after teardown.
     clearQueue();
     withWriteGuard(() => {
-      // 1) Revert everything we explicitly tracked — exact original markup.
+      // 1) Revert everything we explicitly tracked. For overlays this reveals the
+      // untouched original; in-place it puts back the exact original markup.
       for (const [el, snap] of originals) {
         restoreEl(el, snap); // reverts swapped text AND any in-flight loader
         el.classList.remove(LOADING_CLASS);
+        el.style.minHeight = ""; // release any height reserved during loading
         el.removeAttribute(MARK);
       }
       originals.clear();
 
-      // 2) Safety net for virtualized feeds: a post can be re-mounted as a NEW
-      // element that still shows our output but was never tracked (its element
-      // identity changed and the MARK was lost). Sweep the page and, for any
-      // block whose visible text is one WE produced, put its source text back.
-      // Keyed by the same whitespace fingerprint used everywhere else, so
-      // multi-line output still matches when read back via innerText.
-      if (outputs.size) {
+      if (NONDESTRUCTIVE) {
+        // Overlay path: our output only ever lived in owned sibling nodes, and
+        // originals never held the site's nodes. Sweep away any overlay that
+        // outlived its (now-unmounted) partner and reveal any block we hid.
+        document.querySelectorAll(".ctc-out").forEach((n) => n.remove());
+      } else if (outputs.size) {
+        // 2) In-place safety net for virtualized feeds: a post can be re-mounted
+        // as a NEW element that still shows our output but was never tracked (its
+        // identity changed and the MARK was lost). For any block whose visible
+        // text is one WE produced, put its source text back.
         const sel = SCOPE_SEL || CANDIDATE_SEL;
         document.querySelectorAll(sel).forEach((el) => {
           if (isExcluded(el) && !el.hasAttribute(MARK)) return; // skip pre/code/nav etc.
@@ -674,22 +767,22 @@
         });
       }
 
-      // 3) Clean up any leftover markers ("already honest" / still cooking).
+      // 3) Clean up any leftover markers ("already honest" / still cooking) and
+      // reveal anything left hidden by an overlay we just removed.
       document.querySelectorAll("[" + MARK + "]").forEach((el) => {
         el.classList.remove(LOADING_CLASS);
         el.removeAttribute(MARK);
+        if (NONDESTRUCTIVE && el.style.display === "none") el.style.display = "";
       });
     });
   }
 
   // ---------- main scan ----------
-  async function scan() {
+  function scan() {
     if (!active) return;
-    if (expandLinkedInPosts()) {
-      // Let LinkedIn commit the expanded post body before it enters collection.
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (!active) return;
-    }
+    // Release snapshots for nodes the feed has unmounted since the last scan,
+    // so `originals` tracks roughly what's live rather than leaking forever.
+    pruneOriginals();
     const els = collectBlocks();
     if (SCOPE_SEL) {
       log("scoped regions on page:", document.querySelectorAll(SCOPE_SEL).length);

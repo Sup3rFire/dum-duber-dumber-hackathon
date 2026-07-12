@@ -4,6 +4,7 @@ const modeInputs = [...document.querySelectorAll('input[name="mode"]')];
 const wordsCutEl = document.getElementById("wordsCut");
 const wordsAddedEl = document.getElementById("wordsAdded");
 const pagesEl = document.getElementById("pages");
+const statGridEl = document.querySelector(".stat-grid");
 
 let host = null;
 
@@ -49,13 +50,24 @@ async function renderModeSelectorFromStorage() {
   renderModeSelector(await currentMode());
 }
 
-function renderStatValue(el, value) {
-  const count = Number(value) || 0;
-  el.textContent = count.toLocaleString();
-  // A five-digit total renders as "10,000", which is too wide at the regular
-  // display size. Keep it on one line while preserving the full value.
-  el.classList.toggle("compact", Math.abs(count) >= 10_000);
-  el.classList.toggle("compact-long", Math.abs(count) >= 1_000_000);
+// Full commas stay satisfying up to six figures; past a million we switch to
+// compact notation ("3.2M", "12M", "1.4B") so the display never blows up.
+const compactFmt = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+function formatStat(value) {
+  const n = Math.max(0, Math.round(Number(value) || 0));
+  return n < 1_000_000 ? n.toLocaleString() : compactFmt.format(n);
+}
+
+// Size all three numbers off the widest one so they stay proportional, rather
+// than sizing each independently (which left a huge "121" next to two shrunken
+// five-digit totals).
+function sizeStatGrid(labels) {
+  const widest = Math.max(...labels.map((s) => s.length));
+  statGridEl.classList.toggle("tier-md", widest >= 5 && widest <= 6);
+  statGridEl.classList.toggle("tier-sm", widest >= 7);
 }
 
 async function renderStats() {
@@ -64,9 +76,10 @@ async function renderStats() {
   // Tolerate the legacy { wordsBefore, wordsAfter } schema.
   const cut = st.wordsCut != null ? st.wordsCut : Math.max(0, (st.wordsBefore || 0) - (st.wordsAfter || 0));
   const added = st.wordsAdded || 0;
-  renderStatValue(wordsCutEl, cut);
-  renderStatValue(wordsAddedEl, added);
-  renderStatValue(pagesEl, st.pages || 0);
+
+  const labels = [formatStat(cut), formatStat(added), formatStat(st.pages || 0)];
+  [wordsCutEl, wordsAddedEl, pagesEl].forEach((el, i) => (el.textContent = labels[i]));
+  sizeStatGrid(labels);
 }
 
 // Any active mode needs a key for the CURRENTLY SELECTED provider, so resolve
