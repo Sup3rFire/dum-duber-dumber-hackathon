@@ -428,13 +428,34 @@
 
   function restoreAll() {
     withWriteGuard(() => {
+      // 1) Revert everything we explicitly tracked — exact original markup.
       for (const [el, snap] of originals) {
         restoreEl(el, snap); // reverts swapped text AND any in-flight loader
         el.classList.remove(LOADING_CLASS);
         el.removeAttribute(MARK);
       }
       originals.clear();
-      // also clean up blocks that were "already honest" or still cooking
+
+      // 2) Safety net for virtualized feeds: a post can be re-mounted as a NEW
+      // element that still shows our output but was never tracked (its element
+      // identity changed and the MARK was lost). Sweep the page and, for any
+      // block whose visible text is one WE produced, put its source text back.
+      // Keyed by the same whitespace fingerprint used everywhere else, so
+      // multi-line output still matches when read back via innerText.
+      if (outputs.size) {
+        const sel = SCOPE_SEL || CANDIDATE_SEL;
+        document.querySelectorAll(sel).forEach((el) => {
+          if (isExcluded(el) && !el.hasAttribute(MARK)) return; // skip pre/code/nav etc.
+          const src = outputs.get(fp(fullText(el)));
+          if (src != null) {
+            setBlockText(el, src);
+            el.classList.remove(LOADING_CLASS);
+            el.removeAttribute(MARK);
+          }
+        });
+      }
+
+      // 3) Clean up any leftover markers ("already honest" / still cooking).
       document.querySelectorAll("[" + MARK + "]").forEach((el) => {
         el.classList.remove(LOADING_CLASS);
         el.removeAttribute(MARK);
