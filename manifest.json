@@ -2,10 +2,10 @@
   "manifest_version": 3,
   "name": "Cut the Crap",
   "version": "0.1.0",
-  "description": "A slider for the web: Cut the Crap (compress jargon into one honest sentence) or Pile on the Crap (inflate plain text into corporate waffle).",
+  "description": "A three-way toggle for any webpage: Decrapify collapses bloated, evasive writing into one blunt honest sentence, Normal leaves it untouched, or Crapify buries plain text under LinkedIn theatrics, corporate buzzwords and brainrot.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "cut-the-crap@ddd.hackathon",
+      "id": "cut-the-crap@superfi.re",
       "strict_min_version": "115.0"
     }
   },
