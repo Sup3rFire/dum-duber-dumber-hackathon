@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Decrapify turns bloated corporate web prose into the one honest sentence it was trying to say."
+    />
+    <title>Cut the Crap — Decrapify the web</title>
+    <link rel="icon" href="./CutTheCrap-icon-2048.png" type="image/png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <div class="site-shell" id="top">
+      <header class="site-header">
+        <a class="brand" href="#top" aria-label="Cut the Crap home">
+          <img
+            class="brand-mark"
+            src="./CutTheCrap-icon-2048.png"
+            alt=""
+            width="2048"
+            height="2048"
+          />
+          <span>Cut the Crap</span>
+        </a>
+        <span class="mode-badge">Decrapify mode</span>
+      </header>
+
+      <main id="main-content">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">For corporate-survival specialists</p>
+            <h1 id="hero-title">Cut the <em>corporate</em> crap.</h1>
+            <p class="hero-lede">
+              Decrapify turns bloated, jargon-heavy web prose into the one honest
+              sentence it was trying to say.
+            </p>
+            <a
+              class="download-button"
+              href="./cut-the-crap-firefox.zip"
+              download="cut-the-crap-firefox.zip"
+            >
+              <span>Download the ZIP</span>
+              <span aria-hidden="true">↓</span>
+            </a>
+            <p class="download-note">
+              Firefox 115+ · Temporary add-on · Bring your own OpenAI API key
+            </p>
+          </div>
+
+          <div class="hero-art">
+            <span class="hero-sticker">100% less synergy</span>
+            <div class="hero-art-frame">
+              <img
+                src="./CutTheCrap-icon-2048.png"
+                alt="The Cut the Crap mascot: a cartoon pile with a sword slicing through it."
+                width="2048"
+                height="2048"
+              />
+            </div>
+            <span class="hero-caption">decrapify the web</span>
+          </div>
+        </section>
+
+        <section class="proof" aria-labelledby="proof-title">
+          <div class="proof-heading">
+            <p class="eyebrow">Before → after</p>
+            <h2 id="proof-title">One honest sentence, please.</h2>
+            <p>
+              You know the kind of post. Decrapify makes it say the quiet part
+              out loud.
+            </p>
+          </div>
+
+          <div class="comparison" aria-label="A Decrapify transformation example">
+            <article class="comparison-card before-card">
+              <p class="card-label">The corporate version</p>
+              <blockquote>
+                “I’m thrilled to announce that I’m embarking on an exciting new
+                chapter in my professional journey…”
+              </blockquote>
+            </article>
+
+            <div class="comparison-arrow" aria-hidden="true">
+              <span>↓</span>
+              <small>decrapify</small>
+            </div>
+
+            <article class="comparison-card after-card">
+              <p class="card-label">The actual point</p>
+              <blockquote>“I got a new job.”</blockquote>
+            </article>
+          </div>
+        </section>
+
+        <section class="setup" aria-labelledby="setup-title">
+          <div class="setup-heading">
+            <p class="eyebrow">Setup</p>
+            <h2 id="setup-title">Four steps. Zero synergy.</h2>
+            <p>
+              Install the temporary Firefox add-on, add your key, then point
+              Decrapify at the web’s most needlessly verbose corners.
+            </p>
+          </div>
+
+          <ol class="setup-steps">
+            <li>
+              <span class="step-number">1</span>
+              <h3>Download &amp; unzip</h3>
+              <p>
+                Download the ZIP above and extract it somewhere you can keep it.
+              </p>
+            </li>
+            <li>
+              <span class="step-number">2</span>
+              <h3>Load it in Firefox</h3>
+              <p>
+                Open <code>about:debugging</code> → This Firefox → Load Temporary
+                Add-on, then select the extracted <code>manifest.json</code>.
+              </p>
+            </li>
+            <li>
+              <span class="step-number">3</span>
+              <h3>Add your API key</h3>
+              <p>
+                In the extension popup, open Settings / API key, paste your
+                OpenAI API key, and save it locally in Firefox.
+              </p>
+            </li>
+            <li>
+              <span class="step-number">4</span>
+              <h3>Decrapify a page</h3>
+              <p>
+                Open the toolbar popup and switch the current site to
+                Decrapify. It stays off everywhere else until you enable it.
+              </p>
+            </li>
+          </ol>
+
+          <aside class="setup-notice">
+            <p>
+              <strong>Temporary means temporary:</strong> Firefox removes this
+              type of add-on when it restarts, so reload the same
+              <code>manifest.json</code> from <code>about:debugging</code> next
+              time. Your API key is stored locally; page text goes to OpenAI only
+              after you switch a site on.
+            </p>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>Cut the Crap · Decrapify the web</span>
+        <span>Made for pages with too many feelings about “journeys.”</span>
+      </footer>
+    </div>
+  </body>
+</html>
