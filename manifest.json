@@ -10,9 +10,14 @@
     }
   },
   "permissions": ["storage", "activeTab", "tabs", "scripting"],
-  "host_permissions": ["https://api.openai.com/*"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.minimax.io/*"
+  ],
   "background": {
-    "scripts": ["lib/browser-polyfill.js", "prompt.js", "background.js"]
+    "scripts": ["lib/browser-polyfill.js", "prompt.js", "providers.js", "background.js"]
   },
   "content_scripts": [
     {

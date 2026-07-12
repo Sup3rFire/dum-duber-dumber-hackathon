@@ -25,13 +25,18 @@
         font-weight: 600;
         font-size: 14px;
       }
-      input {
+      input,
+      select {
         width: 100%;
         padding: 10px;
         border: 1px solid #ccc;
         border-radius: 6px;
         font-size: 14px;
         box-sizing: border-box;
+        background: #fff;
+      }
+      .hint a {
+        color: #1b6cd6;
       }
       .hint {
         font-size: 12px;
@@ -58,16 +63,25 @@
   <body>
     <h1>Cut the Crap — Settings</h1>
 
-    <label for="apiKey">OpenAI API key</label>
+    <label for="provider">LLM provider</label>
+    <select id="provider"></select>
+    <div class="hint">
+      Which model family transforms the page. Each provider keeps its own key and
+      model, so you can switch freely.
+    </div>
+
+    <label for="apiKey"><span id="apiKeyLabel">API key</span></label>
     <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
     <div class="hint">
-      Stored locally in this browser only. Page text is sent to OpenAI when a
-      site is switched on.
+      Stored locally in this browser only. Page text is sent to the selected
+      provider when a site is switched on.
+      <span id="apiKeyLink"></span>
     </div>
 
     <label for="model">Model</label>
-    <input id="model" type="text" placeholder="gpt-4o-mini" />
-    <div class="hint">Any Chat Completions model. Default: gpt-4o-mini.</div>
+    <input id="model" type="text" list="modelList" placeholder="model name" />
+    <datalist id="modelList"></datalist>
+    <div class="hint" id="modelHint">Any model this provider supports.</div>
 
     <div>
       <button id="save">Save</button>
@@ -75,6 +89,7 @@
     </div>
 
     <script src="lib/browser-polyfill.js"></script>
+    <script src="providers.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

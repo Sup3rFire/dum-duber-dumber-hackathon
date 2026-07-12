@@ -10,12 +10,26 @@
 // Runs on every page (see manifest <all_urls>) but stays dormant on "off".
 
 (function () {
-  const MIN_CHARS = 150; // minimum block length to bother compressing
-  const BATCH_SIZE = 6; // blocks per OpenAI request
+  // Minimum block length to bother transforming, PER MODE. Crapify inflates, so
+  // it's worth firing on short sentences; decrapify compresses, so there's little
+  // point on text that's already short. `minChars()` reads the active mode.
+  const MIN_CHARS = { crap: 40, decrap: 100 };
+  const DEFAULT_MIN_CHARS = 100;
+  const minChars = () => MIN_CHARS[mode] ?? DEFAULT_MIN_CHARS;
+
+  // Skip HEADLINE / display text (font markedly larger than body text). It's a
+  // title, not prose, and rewriting it — especially crapify's ~8x inflation —
+  // overflows the heading's box and paints a wall of giant text over the page.
+  // Matters most now that the crapify length floor is low enough to catch short
+  // headings. Relative to the root font so it holds on any site's base size.
+  const MAX_FONT_MULT = 1.8;
+  const BATCH_SIZE = 6; // blocks per LLM request
   const CONCURRENCY = 3; // max in-flight requests
-  const MAX_BLOCKS = 100; // safety cap per scan
+  const MAX_BLOCKS = 100; // nearest-to-viewport blocks queued per scan
+  const COLLECT_CAP = 500; // absolute ceiling on candidates examined per scan
   const MARK = "data-ctc"; // marks a processed element
   const RESCAN_DEBOUNCE = 400; // ms to coalesce MutationObserver bursts
+  const SCROLL_DEBOUNCE = 200; // ms to coalesce scroll-driven rescans
 
   // While a block is in flight to the model we replace it with an on-brand
   // "cooking" placeholder so the wait doesn't look like nothing is happening.
@@ -35,9 +49,27 @@
   const CANDIDATE_SEL =
     "p,li,blockquote,h1,h2,h3,h4,h5,h6,dd,figcaption,div,span,article,section";
 
-  // Never touch these (or anything inside them).
+  // Never touch these (or anything inside them). Besides <nav>, cover the ARIA
+  // navigation/menu landmarks sites use when they build nav out of div/ul instead
+  // of a semantic <nav> — otherwise a link bar can clear the (now low) crapify
+  // length floor and get rewritten.
   const EXCLUDE_CLOSEST =
-    "pre,code,kbd,samp,nav,textarea,[contenteditable],[contenteditable='true']";
+    "pre,code,kbd,samp,nav,textarea,[contenteditable],[contenteditable='true']," +
+    '[role="navigation"],[role="menu"],[role="menubar"],[role="tablist"],[role="banner"]';
+
+  // A block that is mostly hyperlink/button text is navigation (nav bar, menu,
+  // breadcrumb, footer link list, tag cloud), not prose. Real prose has at most a
+  // couple of inline links, so a high link-text ratio is a reliable "skip me".
+  const LINK_TEXT_RATIO = 0.6;
+  function isLinkHeavy(el) {
+    const total = (el.textContent || "").replace(/\s+/g, "").length;
+    if (!total) return true;
+    let linked = 0;
+    for (const a of el.querySelectorAll("a,button")) {
+      linked += (a.textContent || "").replace(/\s+/g, "").length;
+    }
+    return linked / total > LINK_TEXT_RATIO;
+  }
   const EXCLUDE_TAGS = new Set([
     "SCRIPT",
     "STYLE",
@@ -94,9 +126,19 @@
   let mode = "off"; // current per-site mode
   let active = false; // derived: mode !== "off"
   let writing = false; // true while we mutate the DOM, to ignore our own mutations
-  let pageCounted = false; // ensures "pages processed" only increments once per activation
   let observer = null;
   let rescanTimer = null;
+  let scrollTimer = null;
+
+  // ---------- viewport-prioritized work queue ----------
+  // New blocks don't all fire at once. They wait here and are drained
+  // NEAREST-THE-VIEWPORT first, so activating transforms what you're looking at
+  // before anything off-screen. pump() re-sorts on every dispatch using the
+  // CURRENT scroll position, so scrolling bumps the newly-visible section to the
+  // front of the queue.
+  const pending = []; // [{ el, text }] blocks awaiting a model call
+  let pendingEls = new WeakSet(); // dedup: elements already queued
+  let inFlight = 0; // in-flight batch requests (<= CONCURRENCY)
 
   // Normalize whatever is stored for this host into a current mode string,
   // folding in the legacy boolean and old 5-stop keys.
@@ -123,7 +165,7 @@
   // decrap results never collide.
   const resultCache = new Map(); // `${mode}\u0000${fp(src)}` -> transformed text
   const outputs = new Map(); // fp(text WE produced) -> the source it came from
-  const countedOriginals = new Set(); // `${mode}\u0000${fp(src)}` already tallied into stats
+  const countedOriginals = new Set(); // `${mode}\u0000${fp(src)}` already logged (verbose swap log gate)
 
   // Whitespace-normalized fingerprint: the single source of identity for a block.
   const fp = (t) => (t || "").replace(/\s+/g, " ").trim();
@@ -136,11 +178,6 @@
   const normalizeText = (t) =>
     t.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
 
-  function wordCount(text) {
-    const t = text.trim();
-    return t ? t.split(/\s+/).length : 0;
-  }
-
   // Short one-line preview of a block, for logging.
   function preview(text, n = 80) {
     const t = (text || "").replace(/\s+/g, " ").trim();
@@ -149,6 +186,35 @@
 
   function isVisible(el) {
     return el.getClientRects().length > 0;
+  }
+
+  // Base (root) font size, cached — the yardstick for "is this headline-sized?".
+  let baseFontPx = 0;
+  function rootFontPx() {
+    if (!baseFontPx) {
+      baseFontPx =
+        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    }
+    return baseFontPx;
+  }
+
+  // True for headline / hero / display text we should NOT rewrite (see MAX_FONT_MULT).
+  function isOversizedText(el) {
+    const fs = parseFloat(getComputedStyle(el).fontSize) || 0;
+    return fs > rootFontPx() * MAX_FONT_MULT;
+  }
+
+  // How far a block is from the viewport, in px: 0 while it intersects the
+  // viewport, otherwise the gap to the nearest edge (above or below). Detached /
+  // hidden elements sort to the very back. This is the queue's priority key.
+  function viewportDistance(el) {
+    if (!el.isConnected) return Infinity;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return Infinity;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    if (r.bottom < 0) return -r.bottom; // fully above the viewport
+    if (r.top > vh) return r.top - vh; // fully below the viewport
+    return 0; // intersecting the viewport
   }
 
   // Cheap length gate — textContent avoids the layout reflow that innerText forces.
@@ -253,8 +319,9 @@
   // container of many short paragraphs get caught as ONE block (Reddit-style),
   // while a container of long paragraphs is left to its individual paragraphs.
   function hasQualifyingChild(el) {
+    const min = minChars();
     for (const c of el.children) {
-      if (!isExcluded(c) && tlen(c) >= MIN_CHARS) return true;
+      if (!isExcluded(c) && tlen(c) >= min) return true;
     }
     return false;
   }
@@ -264,7 +331,7 @@
   function collectFrom(root, out) {
     const nodes = root.querySelectorAll(CANDIDATE_SEL);
     for (const el of nodes) {
-      if (out.length >= MAX_BLOCKS) return;
+      if (out.length >= COLLECT_CAP) return;
       if (isExcluded(el)) continue;
       if (!inScope(el)) continue; // scoped site: skip anything outside content regions
       // Never ascend into a container that already holds a block we've processed.
@@ -274,10 +341,12 @@
       // already-transformed HTML as the "original", so restoring to Normal would
       // leave the transformed text on the page.
       if (el.querySelector && el.querySelector("[" + MARK + "]")) continue;
-      if (tlen(el) < MIN_CHARS) continue;
+      if (tlen(el) < minChars()) continue;
       if (hasQualifyingChild(el)) continue; // not the minimal block
       if (!isVisible(el)) continue;
-      if (fullText(el).length < MIN_CHARS) continue; // accurate check (counts hidden "see more" text)
+      if (isOversizedText(el)) continue; // headline/hero text — rewriting wrecks layout
+      if (isLinkHeavy(el)) continue; // nav bar / menu / link list — not prose
+      if (fullText(el).length < minChars()) continue; // accurate check (counts hidden "see more" text)
       out.push(el);
     }
     // Recurse into shadow roots.
@@ -293,18 +362,81 @@
     return found;
   }
 
-  // ---------- concurrency pool ----------
-  async function runPool(items, limit, worker) {
-    let i = 0;
-    const runners = new Array(Math.min(limit, items.length))
-      .fill(0)
-      .map(async () => {
-        while (i < items.length) {
-          const idx = i++;
-          await worker(items[idx]);
-        }
+  // ---------- viewport-prioritized queue: enqueue / pump / process ----------
+  // Add new blocks to the back of the queue (deduped). Priority is decided at
+  // dispatch time in pump(), not here, so a block enqueued while off-screen still
+  // jumps the queue the moment you scroll it into view.
+  function enqueue(blocks) {
+    for (const b of blocks) {
+      if (pendingEls.has(b.el)) continue;
+      pendingEls.add(b.el);
+      pending.push(b);
+    }
+  }
+
+  function clearQueue() {
+    pending.length = 0;
+    pendingEls = new WeakSet();
+  }
+
+  // Drain the queue up to CONCURRENCY in-flight batches. Each batch is the set of
+  // currently-nearest blocks, so the viewport is always served first and the
+  // ordering re-evaluates against the live scroll position on every dispatch.
+  function pump() {
+    if (!active) return;
+    while (inFlight < CONCURRENCY && pending.length) {
+      pending.sort((a, b) => viewportDistance(a.el) - viewportDistance(b.el));
+      const batch = [];
+      while (batch.length < BATCH_SIZE && pending.length) {
+        const item = pending.shift();
+        pendingEls.delete(item.el);
+        if (!item.el.isConnected) continue; // unmounted while queued — drop it
+        batch.push(item);
+      }
+      if (!batch.length) continue; // whole slice was dead; keep draining
+      inFlight++;
+      processBatch(batch).finally(() => {
+        inFlight--;
+        pump();
       });
-    await Promise.all(runners);
+    }
+  }
+
+  // Transform one batch: show its loaders, call the model, swap results in. The
+  // loader is applied HERE (not when queued) so off-screen blocks keep their
+  // original text until it's actually their turn.
+  async function processBatch(batch) {
+    if (!active) return;
+    const batchMode = mode; // guard against a flip landing a stale-mode response
+    beginLoading(batch);
+    try {
+      const resp = await browser.runtime.sendMessage({
+        type: "compress",
+        mode: batchMode,
+        url: location.href, // lets the background count paid pages, deduped per (url, mode)
+        blocks: batch.map((b, i) => ({ id: "b" + i, text: b.text })),
+      });
+      // If the mode changed while this was in flight, the flip's restoreAll has
+      // already reverted these elements — applying now would paint the wrong
+      // mode's text and poison the cache. Drop it; the new mode re-queues them.
+      if (!active || mode !== batchMode) return;
+      log("compress response:", resp);
+      if (!resp) return applyResults(batch, []); // clear loaders, allow retry
+      if (resp.error === "NO_API_KEY") {
+        log("NO API KEY set — open Settings and add your provider API key");
+        active = false; // nothing we can do without a key
+        clearQueue();
+        restoreAll(); // take down every loader we put up
+        return;
+      }
+      if (resp.error) log("batch error from background:", resp.error);
+      // Pass whatever came back (possibly empty): matched ids swap in, the rest
+      // revert from the loader to their original so they aren't stuck cooking.
+      applyResults(batch, resp.results || []);
+    } catch (e) {
+      log("sendMessage failed for a batch:", e);
+      applyResults(batch, []); // revert loaders; a later rescan can retry
+    }
   }
 
   // ---------- swap / restore ----------
@@ -413,15 +545,15 @@
 
   // Apply a list of { b, next, cached } swaps in a single write pass. `cached`
   // marks a re-application from the content cache (no model call happened), so we
-  // can log it quietly and never count it toward stats a second time.
+  // can log it quietly. NOTE: word stats are tallied by the BACKGROUND, on the
+  // paid cache miss — not here — so toggling modes / reloading (which serve from
+  // cache) never re-inflates the totals. Same logic as the page counter.
   function applySwaps(pairs) {
     // A batch may resolve after the user flipped the mode/off; by then restoreAll
     // has already cleaned these elements, so writing now would resurrect stale
     // text (and re-show loaders). Bail — the cleanup already happened.
     if (!active) return;
 
-    let wordsCut = 0; // words removed (decrapify shrinks)
-    let wordsAdded = 0; // words added (crapify grows)
     let swapped = 0;
 
     withWriteGuard(() => {
@@ -488,11 +620,8 @@
         if (countedOriginals.has(key)) {
           log("· re-applied from cache (" + mode + "):", preview(next));
         } else {
-          countedOriginals.add(key);
-          const delta = wordCount(next) - wordCount(b.text);
-          if (delta < 0) wordsCut += -delta;
-          else wordsAdded += delta;
-          // Full before -> after, so you can see exactly what GPT returned.
+          countedOriginals.add(key); // gates verbose logging only, not stats
+          // Full before -> after, so you can see exactly what the model returned.
           log(
             "· swap (" + mode + "):",
             "\n  BEFORE:",
@@ -505,11 +634,6 @@
     });
 
     if (swapped) log("applied", swapped, "swap(s)");
-    if (wordsCut > 0 || wordsAdded > 0) {
-      browser.runtime
-        .sendMessage({ type: "addStats", wordsCut, wordsAdded })
-        .catch(() => {});
-    }
   }
 
   // Adapter for a model response batch: map ids back to blocks, then apply.
@@ -519,6 +643,9 @@
   }
 
   function restoreAll() {
+    // Drop anything still queued — its element was never touched, so there's
+    // nothing to revert; we just stop it from being processed after teardown.
+    clearQueue();
     withWriteGuard(() => {
       // 1) Revert everything we explicitly tracked — exact original markup.
       for (const [el, snap] of originals) {
@@ -570,10 +697,13 @@
     log("scan found", els.length, "block(s)");
     if (!els.length) return;
 
-    if (!pageCounted) {
-      pageCounted = true;
-      browser.runtime.sendMessage({ type: "addStats", pages: 1 }).catch(() => {});
-    }
+    // NOTE: page counting is NOT done here. The background worker owns it, because
+    // only it knows whether a transformation was actually PAID for (an uncached
+    // API call) vs served from its persistent cache. It increments "pages" once
+    // per (url, mode) when a real call happens — so a fresh uncached load counts,
+    // flipping to the other mode counts if that mode wasn't cached, and reloads /
+    // scrolls / flipping back to an already-computed mode cost nothing and don't
+    // count. See handleTransform() in background.js.
 
     // Partition the collected blocks into ones we can resolve locally (already
     // handled this session — the common case when scrolling a virtualized feed
@@ -603,40 +733,14 @@
 
     if (!blocks.length) return;
 
-    // Show the "cooking" placeholder on every model-bound block up front, so the
-    // whole batch signals activity immediately rather than one batch at a time.
-    beginLoading(blocks);
-
-    const batches = [];
-    for (let i = 0; i < blocks.length; i += BATCH_SIZE) {
-      batches.push(blocks.slice(i, i + BATCH_SIZE));
-    }
-
-    await runPool(batches, CONCURRENCY, async (batch) => {
-      if (!active) return;
-      try {
-        const resp = await browser.runtime.sendMessage({
-          type: "compress",
-          mode,
-          blocks: batch.map((b, i) => ({ id: "b" + i, text: b.text })),
-        });
-        log("compress response:", resp);
-        if (!resp) return applyResults(batch, []); // clear loaders, allow retry
-        if (resp.error === "NO_API_KEY") {
-          log("NO API KEY set — open Settings and add your OpenAI key");
-          active = false; // nothing we can do without a key
-          restoreAll(); // take down every loader we put up
-          return;
-        }
-        if (resp.error) log("batch error from background:", resp.error);
-        // Pass whatever came back (possibly empty): matched ids swap in, the rest
-        // revert from the loader to their original so they aren't stuck cooking.
-        applyResults(batch, resp.results || []);
-      } catch (e) {
-        log("sendMessage failed for a batch:", e);
-        applyResults(batch, []); // revert loaders; a later rescan can retry
-      }
-    });
+    // Queue the blocks NEAREST the viewport first. pump() re-sorts by live scroll
+    // position on every dispatch, so this ordering is just the initial hint; what
+    // ultimately goes first is whatever is on screen when a slot frees up. We cap
+    // per scan at the nearest MAX_BLOCKS; the rest are picked up by later scans
+    // (scroll / mutation) once they come near.
+    blocks.sort((a, b) => viewportDistance(a.el) - viewportDistance(b.el));
+    enqueue(blocks.slice(0, MAX_BLOCKS));
+    pump();
   }
 
   function scheduleRescan() {
@@ -645,6 +749,21 @@
       rescanTimer = null;
       scan();
     }, RESCAN_DEBOUNCE);
+  }
+
+  // Scrolling re-prioritizes the queue toward what's now on screen and lets us
+  // pick up blocks that were too far away (or beyond MAX_BLOCKS) on earlier
+  // scans. Debounced, and cheap while idle since it no-ops when nothing changed.
+  // capture:true so it also catches scrolling inside nested scroll containers,
+  // whose scroll events don't bubble to window.
+  function onScroll() {
+    if (!active || scrollTimer) return;
+    scrollTimer = setTimeout(() => {
+      scrollTimer = null;
+      if (!active) return;
+      pump(); // reprioritize the existing queue against the new viewport
+      scan(); // enqueue any newly-near blocks
+    }, SCROLL_DEBOUNCE);
   }
 
   // ---------- observer ----------
@@ -673,6 +792,10 @@
       clearTimeout(rescanTimer);
       rescanTimer = null;
     }
+    if (scrollTimer) {
+      clearTimeout(scrollTimer);
+      scrollTimer = null;
+    }
   }
 
   // ---------- mode transitions ----------
@@ -698,7 +821,6 @@
     active = mode !== "off";
 
     if (active) {
-      pageCounted = false;
       startObserver();
       scan();
     }
@@ -721,6 +843,9 @@
     if (area !== "local" || !changes.siteState) return;
     applyMode((changes.siteState.newValue || {})[HOST]);
   });
+
+  // One passive, self-gating scroll listener drives viewport re-prioritization.
+  document.addEventListener("scroll", onScroll, { passive: true, capture: true });
 
   init();
 })();

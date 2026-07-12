@@ -69,9 +69,18 @@ async function renderStats() {
   renderStatValue(pagesEl, st.pages || 0);
 }
 
+// Any active mode needs a key for the CURRENTLY SELECTED provider, so resolve
+// through the same schema the background worker uses rather than peeking at the
+// legacy top-level `apiKey`.
 async function hasApiKey() {
-  const s = await browser.storage.local.get("apiKey");
-  return !!(s.apiKey && s.apiKey.trim());
+  const store = await browser.storage.local.get([
+    "provider",
+    "apiKeys",
+    "models",
+    "apiKey",
+    "model",
+  ]);
+  return !!CTC_PROVIDERS.resolveSettings(store).apiKey;
 }
 
 async function setMode(mode) {
