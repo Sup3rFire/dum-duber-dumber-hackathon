@@ -55,7 +55,7 @@ flowchart TD
 ```
 
 ## Files
-- `manifest.json` — MV3. Firefox uses `background.scripts` (event page); a small note/second manifest or build step for Chrome's `background.service_worker`. `host_permissions` for `https://api.openai.com/*`, `permissions: [storage, activeTab, scripting]`, `browser_specific_settings.gecko.id`.
+- `manifest.json` — MV3. Firefox uses `background.scripts` (event page); a small note/second manifest or build step for Chrome's `background.service_worker`. `host_permissions` for `https://api.openai.com/*`, `permissions: [storage, activeTab, scripting]`, `browser_specific_settings.gecko.id`. Must include an `action` with `default_popup: "popup.html"`, and a `content_scripts` entry with `matches: ["<all_urls>"]` so `content.js` runs everywhere and reacts to `storage.onChanged`.
 - `content.js` — prose detection, MutationObserver, reversible swap, per-site activation via `storage.onChanged`, computes word deltas.
 - `prompt.js` — the decrappification voice: `SYSTEM_PROMPT` + embedded few-shot examples (and future `PERSONAS`). Imported by `background.js`. Team's main iteration surface.
 - `background.js` — OpenAI batched calls (CORS-free from background with host permission), imports voice from `prompt.js`, cache, lifetime-stats accumulation, error isolation (one batch failing leaves those blocks untouched).
@@ -71,6 +71,19 @@ flowchart TD
 
 ## Stats definition
 - `wordsBefore`/`wordsAfter` counted in `content.js` per block; send deltas to `background.js` to accumulate `totalWordsCut`, `totalPagesProcessed` (+1 per page activation), and derive overall `% shorter` from cumulative before/after totals.
+
+## Loading into Firefox + demo
+Load path: `about:debugging` -> **This Firefox** -> **Load Temporary Add-on** -> select `manifest.json`. No signing/store needed. Note: temporary add-ons are removed on browser restart, so re-load before each demo session.
+
+Build-time must-haves for it to actually run (not just load):
+- **No ES `import` in background/content.** Firefox event-page `background.scripts` load in array order in a shared scope. Use `scripts: ["lib/browser-polyfill.js", "prompt.js", "background.js"]` and expose the voice from `prompt.js` as a global that `background.js` reads — do not rely on `import ... from './prompt.js'`. Load the polyfill first in `popup.html`/`options.html` too.
+- **Icons:** either ship placeholder PNGs referenced by `action.default_icon`/`icons`, or omit icon refs entirely — a referenced-but-missing icon file triggers a load warning.
+
+Demo-day checklist (runtime, not code):
+- Set the OpenAI API key in options first, and confirm the key has credit.
+- Be logged into LinkedIn in the demo tab; keep a public bloat-heavy page (press release / Medium post) as a safer backup target.
+- Expect ~1-3s before blocks pop even when batched; the cache makes a second run on the same page instant — pre-warm the exact demo page.
+- LinkedIn's React may briefly revert a swap (MutationObserver re-catches it, possible flicker); the public-article backup avoids this.
 
 ## Build todos
 1. `manifest.json` — MV3, Firefox `background.scripts` + gecko id, host_permissions for OpenAI, storage/activeTab/scripting perms; vendor webextension-polyfill; note Chrome `service_worker` variant.
