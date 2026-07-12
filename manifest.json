@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cut the Crap",
   "version": "0.1.0",
-  "description": "A spectrum slider for the web: Cut the Crap (compress jargon into one honest sentence) or Pile on the Crap (inflate plain text into corporate waffle), mild to extreme.",
+  "description": "A slider for the web: Cut the Crap (compress jargon into one honest sentence) or Pile on the Crap (inflate plain text into corporate waffle).",
   "browser_specific_settings": {
     "gecko": {
       "id": "cut-the-crap@ddd.hackathon",

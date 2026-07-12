@@ -8,32 +8,34 @@ const pagesEl = document.getElementById("pages");
 
 let host = null;
 
-// Slider position (0..4) -> mode, laid out as a spectrum around Normal.
+// Slider position (0..2) -> mode, laid out as a spectrum around Normal.
 const MODES = [
-  "crap-extreme", // 0 — most bloat
-  "crap-mild", // 1
-  "off", // 2 — untouched
-  "decrap-mild", // 3
-  "decrap-extreme", // 4 — most honest
+  "crap", // 0 — pile on the crap
+  "off", // 1 — untouched
+  "decrap", // 2 — cut the crap
 ];
 
 const MODE_META = {
-  "crap-extreme": { label: "Pile on the Crap · Extreme", sub: "Turns plain text into a corporate saga", cls: "crap" },
-  "crap-mild": { label: "Pile on the Crap · Mild", sub: "Adds a little LinkedIn polish", cls: "crap" },
+  crap: { label: "Pile on the Crap", sub: "Turns plain text into a corporate saga", cls: "crap" },
   off: { label: "Normal", sub: "Leaves the page untouched", cls: "" },
-  "decrap-mild": { label: "Cut the Crap · Mild", sub: "Trims the fluff, keeps the message", cls: "decrap" },
-  "decrap-extreme": { label: "Cut the Crap · Extreme", sub: "Just the one honest sentence", cls: "decrap" },
+  decrap: { label: "Cut the Crap", sub: "Just the one honest sentence", cls: "decrap" },
 };
 
+// Map any stored value (including legacy 5-stop keys and the old boolean) to a
+// current mode key.
 function normalizeMode(v) {
-  if (v === true) return "decrap-extreme"; // legacy boolean
-  if (typeof v === "string" && MODES.includes(v)) return v;
+  if (v === true) return "decrap"; // legacy boolean
+  if (typeof v === "string") {
+    if (v.startsWith("decrap")) return "decrap";
+    if (v.startsWith("crap")) return "crap";
+    if (MODES.includes(v)) return v;
+  }
   return "off";
 }
 
 function indexOfMode(m) {
   const i = MODES.indexOf(m);
-  return i === -1 ? 2 : i;
+  return i === -1 ? 1 : i;
 }
 
 function renderModeLabel(mode) {
@@ -99,7 +101,7 @@ spectrumEl.addEventListener("input", () => {
 // Commit on release / change.
 spectrumEl.addEventListener("change", async () => {
   if (!host) {
-    spectrumEl.value = "2";
+    spectrumEl.value = "1";
     renderModeLabel("off");
     return;
   }
@@ -108,7 +110,7 @@ spectrumEl.addEventListener("change", async () => {
 
   // Any active mode needs a key. Missing key -> bounce to Settings, snap to Normal.
   if (mode !== "off" && !(await hasApiKey())) {
-    spectrumEl.value = "2";
+    spectrumEl.value = "1";
     renderModeLabel("off");
     browser.runtime.openOptionsPage();
     window.close();

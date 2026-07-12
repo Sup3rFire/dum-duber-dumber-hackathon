@@ -3,9 +3,8 @@
 A browser extension with a **spectrum slider** that rewrites the prose on any page in either direction:
 
 ```
- EXTREME     MILD       NORMAL        MILD      EXTREME
- crapify    crapify   (untouched)   decrapify  decrapify
-   ← ── more corporate bloat ── | ── more brutal honesty ── →
+  crapify      NORMAL      decrapify
+   ← ── corporate bloat | brutal honesty ── →
 ```
 
 - **Cut the Crap** (decrapify) — compress bloated, jargon-heavy text (LinkedIn posts, corporate emails, marketing waffle) toward the one honest sentence it was actually trying to say.
@@ -14,7 +13,7 @@ A browser extension with a **spectrum slider** that rewrites the prose on any pa
   > **"I got a new job."** → a 200-word saga about "embarking on a new professional chapter."
 - **Normal** — the extension does nothing.
 
-Each direction has a **Mild** and an **Extreme** setting. Five stops total, with Normal in the centre.
+Three stops total — **Crapify · Normal · Decrapify** — with Normal in the centre.
 
 Firefox-first (Manifest V3), portable to Chrome with minimal changes.
 
@@ -29,7 +28,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 ## How it works
 
-- Every site starts on **Normal**. The chosen mode is remembered per domain (like Dark Reader). Stored as a string: `off` / `decrap-mild` / `decrap-extreme` / `crap-mild` / `crap-extreme` (a legacy boolean `true` is read as `decrap-extreme`).
+- Every site starts on **Normal**. The chosen mode is remembered per domain (like Dark Reader). Stored as a string: `off` / `crap` / `decrap` (legacy values — the old boolean `true` and the old 5-stop keys — are folded onto these).
 - On any non-Normal mode, the content script finds prose blocks (≥150 chars), batches them to the background worker → OpenAI (with that mode's voice) → swaps the text in place as each batch resolves. No page refresh.
 - Switching mode (including back to Normal) restores the original text first, so e.g. going from decrapify to crapify always starts from the real source text, not already-rewritten DOM.
 - The popup shows lifetime totals: **words cut** (decrapify), **words piled on** (crapify), and pages processed.
@@ -40,7 +39,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 |---|---|
 | `manifest.json` | MV3 config (Firefox event page, `<all_urls>` content script, popup, options) |
 | `content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode |
-| `prompt.js` | **The voices** — four mode prompts (mild/extreme × cut/pile) + few-shot examples. Iterate on the humor here. |
+| `prompt.js` | **The voices** — two mode prompts (cut/pile) + few-shot examples. Iterate on the humor here. |
 | `background.js` | OpenAI calls (mode-aware), response cache, lifetime stats |
 | `popup.html` / `popup.js` | Per-site spectrum slider + lifetime stats |
 | `options.html` / `options.js` | OpenAI API key + model |
@@ -51,7 +50,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 `prompt.js` is the product surface. It defines a `MODES` map — each mode has a `STYLE` block, a set of few-shot pairs, and a `temperature`, assembled into one system prompt via `buildPrompt()`. Few-shot examples steer the tone far more reliably than long instructions.
 
-The before→after pairs are written **once** in the decrapify direction (bloated → honest); the crapify modes reuse the same pairs with the arrow flipped (`flip()`), so both directions share a single source of humour. Add sharp pairs to `DECRAP_EXTREME_PAIRS` / `DECRAP_MILD_PAIRS` to steer everything at once.
+The before→after pairs are written **once** in the decrapify direction (bloated → honest); the crapify mode reuses the same pairs with the arrow flipped (`flip()`), so both directions share a single source of humour. Add sharp pairs to `DECRAP_PAIRS` to steer both directions at once.
 
 The examples are embedded inside each system prompt; the actual request uses a JSON batch contract (`{"blocks":[...]}` in, `{"results":[...]}` out) that is **identical across modes** (the `CONTRACT` constant), so don't restructure the message format. The content script passes the active `mode` on each `compress` message and the background worker folds it into the cache key.
 
