@@ -133,28 +133,31 @@
   }
 
   function applyResults(batch, results) {
-    // batch: [{ id, el, text }], results: [{ id, text }]
-    const byId = new Map(results.map((r) => [r.id, r.text]));
+    // results: [{ id, text }] with id = "b<index-within-batch>"
+    const byId = new Map(results.map((r) => [String(r.id), r.text]));
     let wordsBefore = 0;
     let wordsAfter = 0;
+    let swapped = 0;
 
     withWriteGuard(() => {
-      for (const b of batch) {
-        const compressed = byId.get(b.id);
-        if (compressed == null) continue; // failed/omitted — leave original
+      batch.forEach((b, i) => {
+        const compressed = byId.get("b" + i);
+        if (compressed == null) return; // failed/omitted — leave original
         if (compressed.trim() === b.text.trim()) {
           // model judged it already honest; mark so we don't retry it
           b.el.setAttribute(MARK, "1");
-          continue;
+          return;
         }
         originals.set(b.el, b.el.innerHTML);
         b.el.setAttribute(MARK, "1");
         b.el.textContent = compressed;
         wordsBefore += wordCount(b.text);
         wordsAfter += wordCount(compressed);
-      }
+        swapped++;
+      });
     });
 
+    log("applied", swapped, "swap(s)");
     if (wordsBefore > 0) {
       browser.runtime
         .sendMessage({ type: "addStats", wordsBefore, wordsAfter })
@@ -188,9 +191,8 @@
       browser.runtime.sendMessage({ type: "addStats", pages: 1 }).catch(() => {});
     }
 
-    // Build blocks with stable ids, chunk into batches.
-    const blocks = els.map((el, i) => ({
-      id: String(i) + ":" + Math.random().toString(36).slice(2, 8),
+    // Build blocks, chunk into batches. Ids are assigned per-batch at send time.
+    const blocks = els.map((el) => ({
       el,
       text: (el.innerText || "").trim(),
     }));
@@ -205,7 +207,7 @@
       try {
         const resp = await browser.runtime.sendMessage({
           type: "compress",
-          blocks: batch.map((b) => ({ id: b.id, text: b.text })),
+          blocks: batch.map((b, i) => ({ id: "b" + i, text: b.text })),
         });
         log("compress response:", resp);
         if (!resp) return;

@@ -46,7 +46,10 @@ async function cacheSet(key, value) {
 }
 
 // ---- OpenAI ----
-async function callOpenAI(texts, apiKey, model) {
+// blocks: [{ id, text }]. Returns a Map of id -> compressed text.
+// We match by id and tolerate the model returning extra/missing/misordered
+// items — unmatched inputs are simply left uncompressed by the caller.
+async function callOpenAI(blocks, apiKey, model) {
   const resp = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
@@ -57,10 +60,15 @@ async function callOpenAI(texts, apiKey, model) {
       model,
       messages: [
         { role: "system", content: CTC_VOICE.SYSTEM_PROMPT },
-        { role: "user", content: JSON.stringify({ blocks: texts }) },
+        {
+          role: "user",
+          content: JSON.stringify({
+            blocks: blocks.map((b) => ({ id: b.id, text: b.text })),
+          }),
+        },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.7,
+      temperature: 0.4,
     }),
   });
 
@@ -74,15 +82,14 @@ async function callOpenAI(texts, apiKey, model) {
   if (!content) throw new Error("Empty response");
 
   const parsed = JSON.parse(content);
-  const results = parsed.results;
-  if (!Array.isArray(results) || results.length !== texts.length) {
-    throw new Error(
-      `Bad shape: expected ${texts.length} results, got ${
-        Array.isArray(results) ? results.length : typeof results
-      }`
-    );
+  const arr = parsed.results;
+  if (!Array.isArray(arr)) throw new Error("results is not an array");
+
+  const map = new Map();
+  for (const r of arr) {
+    if (r && r.id != null && r.text != null) map.set(String(r.id), String(r.text));
   }
-  return results.map((r) => String(r));
+  return map;
 }
 
 // Compress ONE batch. Cache hits are resolved locally; only the misses hit the API.
@@ -106,12 +113,16 @@ async function handleCompress(blocks) {
 
   if (misses.length) {
     try {
-      const out = await callOpenAI(misses.map((b) => b.text), apiKey, model);
-      log("OpenAI returned", out.length, "result(s)");
-      for (let i = 0; i < misses.length; i++) {
-        results.push({ id: misses[i].id, text: out[i] });
-        await cacheSet(cacheKey(model, misses[i].text), out[i]);
+      const out = await callOpenAI(misses, apiKey, model);
+      let matched = 0;
+      for (const b of misses) {
+        const t = out.get(String(b.id));
+        if (t == null) continue; // model omitted this id — leave original
+        matched++;
+        results.push({ id: b.id, text: t });
+        await cacheSet(cacheKey(model, b.text), t);
       }
+      log("OpenAI matched", matched, "of", misses.length, "block(s) by id");
     } catch (e) {
       log("OpenAI call FAILED:", String(e.message || e));
       return { results, error: String(e.message || e) };
