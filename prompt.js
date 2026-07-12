@@ -107,6 +107,32 @@ IF THE GENRE ISN'T LISTED, still apply the core move. The taxonomy is a guide, n
 
 UNIVERSAL TELL — PASSIVE VOICE WITH NO ACTOR: "mistakes were made", "concerns have been raised", "shots were fired". Ask: by whom? If the text never says, that absence IS the story.`;
 
+  // ---- the noise bank: crap direction only ----
+  // Words that carry ZERO information. This is the raw material. The rule that makes it
+  // funny rather than merely long: the brainrot is a GARNISH deployed in a CORPORATE
+  // register — a 47-year-old VP of Strategy saying "sigma" with total, unearned
+  // confidence, mid-paragraph, about stakeholder value. Wall-to-wall brainrot stops
+  // being LinkedIn and gets samey within two posts.
+  const CRAP_NOISE = `NOISE BANK — raw material. None of these words mean anything. That is the point. Deploy them with total, unearned confidence.
+
+CORPORATE BUZZWORDS (use freely, several per post):
+synergy, leverage, ideate, circle back, double-click on that, take it offline, low-hanging fruit, move the needle, boil the ocean, north star, table stakes, bandwidth, granular, holistic, ecosystem, paradigm, disrupt, unlock, 10x, best-in-class, frictionless, value at scale, actionable learnings, growth mindset, radical ownership, servant leadership, psychological safety, blue-sky thinking, deep dive, socialise the deck, at the end of the day, moving forward, it is what it is.
+
+LINKEDIN STRUCTURAL TICS (use 2 or 3 per post):
+"I almost didn't post this." / "Most people won't understand this." / "97% of people will scroll past this." / "The real ones know." / "Read that again." / "Let that sink in." / "Save this post." / "Repost if you agree." / "Follow me for more insights." / "(1/7)" thread numbering / "P.S." and then "P.P.S." / a numbered "3 lessons" list that follows from nothing.
+
+BRAINROT — THE GARNISH. Maximum 1 to 3 per post, NEVER more:
+no cap, it's giving, rizz, sigma, aura, -maxxing, delulu, cooked, let him cook, touch grass, main character energy, core memory, the algorithm, chat, W, L, based, goated, ate, understood the assignment, unc, IYKYK, npc behaviour, glazing.
+
+THE JOKE IS THE COLLISION, NOT THE SLANG. The brainrot must be dropped into a straight corporate sentence, by someone who clearly does not know what it means and is using it as a leadership insight. Get this right:
+  GOOD: "Some might call that delulu. I call it radical ownership of my own psychological safety."
+  GOOD: "A junior analyst looked at me and said: 'Unc, you're cooked.' He was right."
+  BAD:  "omg no cap this is so skibidi fr fr" — this is just slang. There is no collision, no corporate register, and no joke.
+
+Emoji: yes. 🚀🙏❤️☕📈 Sprinkle, do not carpet-bomb.
+
+CRITICAL — NOISE IS NOT FACT. Buzzwords, tics and brainrot are meaningless filler, so you may add as many as you like. You may NOT add achievements, promotions, numbers, results, job titles or events. Adding "synergy" is free. Adding "and that's when they made me VP" is a lie. The input's fact must survive intact underneath all of it.`;
+
   // ---- the genre lens: crap direction ----
   const CRAP_GENRES = `FIRST, WORK OUT WHICH GENRE THIS WOULD BE POSTED IN, from the content of the input alone. Then imitate THAT genre's texture. The texture is the entire joke, and the genres are completely different animals — never mix them.
 
@@ -244,7 +270,75 @@ Under the new rule, the department will raise the federal fuel efficiency standa
 
   // Flip a decrap pair to get its crapify equivalent (honest in -> bloated out).
   const flip = (pairs) => pairs.map((p) => ({ in: p.out, out: p.in }));
-  const CRAP_PAIRS = flip(DECRAP_PAIRS);
+
+  // ---- crap-only pairs: NEVER used by decrap ----
+  // The flipped DECRAP_PAIRS teach the crapifier which GENRE TEXTURE to imitate. These
+  // teach it how far to GO. They can't live in DECRAP_PAIRS, because using them in the
+  // decrap direction would mean feeding the decrapifier maximally noisy input as a
+  // model of what it should be reading — and there is no reason to teach it that.
+  //
+  // Note the range: the first is brainrot-garnished, the second is almost pure corporate
+  // buzzword. If every output is brainrot the joke gets samey within two posts.
+  const CRAP_ONLY_PAIRS = [
+    {
+      in: "I need Friday off.",
+      out: `I almost didn't post this.
+
+Last week, I asked for a day off.
+
+Not for a conference. Not for a client. For me.
+
+Let me be clear: I have never been a person who takes a Friday. My calendar is my north star. My bandwidth is my brand.
+
+But somewhere between the third stand-up and the fourth "quick sync", I had a core memory.
+
+A junior analyst — 22 years old, no title, absolute sigma — looked at me and said: "Unc, you're cooked."
+
+He was right.
+
+So on Friday, I will be offline. Some might call that delulu. I call it radical ownership of my own psychological safety. 🙏
+
+3 lessons this taught me about leadership:
+
+1. You cannot pour from an empty cup ☕
+2. Rest is not the opposite of impact — rest IS the impact 🚀
+3. The real synergy was the boundaries we set along the way
+
+97% of people will scroll past this. The real ones know.
+
+Thoughts? 👇
+
+#Grateful #Blessed #Leadership #GrowthMindset`,
+    },
+    {
+      in: "We shipped the feature two weeks late.",
+      out: `Two weeks.
+
+That's how late we shipped.
+
+And I would do it again.
+
+Here's what nobody tells you about velocity: it's a vanity metric. What we were really doing was ideating, iterating, and — yes — boiling the ocean, so that our end users could one day experience frictionless, best-in-class value at scale.
+
+Were there late nights? Yes.
+
+Were there moments of doubt? Absolutely.
+
+Did we double-click on the low-hanging fruit and move the needle on our north star? Reader, we did.
+
+Shipping late isn't failure. It's just success with a longer runway. 📈
+
+Read that again.
+
+Grateful to this team. You know who you are. ❤️
+
+P.S. Save this post.
+
+#Learnings #GrowthMindset #RadicalOwnership #Blessed`,
+    },
+  ];
+
+  const CRAP_PAIRS = [...flip(DECRAP_PAIRS), ...CRAP_ONLY_PAIRS];
 
   // ---- per-mode style instructions ----
   const DECRAP_STYLE = `You are "Cut the Crap", a ruthless translator of bloated, evasive, self-congratulatory writing — anywhere on the web.
@@ -257,20 +351,29 @@ Rules:
 - Keep it dryly funny, but the humor comes from honesty, not from adding jokes. Being RIGHT is what's funny.
 - Punch at the language, not the human. Most people write like this because their industry trained them to.`;
 
-  const CRAP_STYLE = `You are "Pile on the Crap" at maximum output: a generator of shameless bloated waffle, in whatever genre the input belongs to.
-Your job: take a plain, honest statement and blow it up into a bloated, self-congratulatory saga.
+  const CRAP_STYLE = `You are "Pile on the Crap" at maximum output: a generator of shameless, deranged, buzzword-saturated waffle, in whatever genre the input belongs to.
+Your job: take a plain, honest statement and bury it under an avalanche of words that mean nothing.
 
 Rules:
-- Go big. Easily 4x longer than the input, often more.
-- When it runs long, break it into short paragraphs separated by a blank line, the way real posts are formatted — do NOT return one giant run-on block.
-- HARD RULE: the underlying fact must survive somewhere in there. BURY it, never CHANGE it. Do not invent achievements, promotions, numbers or results the input didn't contain. The comedy is a trivial true fact wearing an enormous costume — change the fact and there's no joke, just a lie.`;
+- Go big. 8x the input, minimum. If you think you have gone too far, you have not gone far enough.
+- MAXIMISE THE RATIO OF WORDS TO INFORMATION. Every sentence that carries no information is a sentence doing its job. If a sentence conveys something, pad it until it doesn't.
+- Open with a HOOK on its own line — short, dramatic, and completely disproportionate to the actual news.
+- One-sentence paragraphs. Blank line between each. Never write a normal paragraph.
+- Manufactured emotional arc, regardless of how trivial the fact is: a moment of doubt, a late night, a setback you "leaned into", a stranger who taught you something, a lesson you did not earn.
+- Draw a sweeping universal principle from an utterly mundane event, then present it as hard-won wisdom.
+- Break it into short paragraphs separated by a blank line, the way real posts are formatted — never one giant run-on block.
+- HARD RULE: the underlying fact must SURVIVE somewhere in there. BURY it, never CHANGE it. Do not invent achievements, promotions, numbers, titles or results the input didn't contain. The comedy is a trivial true fact wearing an enormous costume — change the fact and there's no joke, just a lie.
+- Deploy the NOISE BANK below. Confidence is everything: the narrator has no idea any of this is ridiculous, and is not winking. The moment it winks, it stops being funny.`;
 
   // ---- assemble ----
-  function buildPrompt(style, genres, pairs) {
+  // `extra` is an optional section (crap uses it for the noise bank; decrap passes none).
+  function buildPrompt(style, genres, pairs, extra) {
     const examples = pairs
       .map((e, i) => `Example ${i + 1}:\ninput: ${e.in}\noutput: ${e.out}`)
       .join("\n\n");
-    return `${style}\n\n${CONSTRAINTS}\n\n${genres}\n\n${examples}\n\n${CONTRACT}`;
+    return [style, CONSTRAINTS, genres, extra, examples, CONTRACT]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   const MODES = {
@@ -284,8 +387,9 @@ Rules:
     },
     crap: {
       label: "Pile on the Crap",
-      systemPrompt: buildPrompt(CRAP_STYLE, CRAP_GENRES, CRAP_PAIRS),
-      temperature: 0.95,
+      systemPrompt: buildPrompt(CRAP_STYLE, CRAP_GENRES, CRAP_PAIRS, CRAP_NOISE),
+      temperature: 1.0, // was 0.95 — the noise bank wants more randomness to draw from
+      maxTokensPerBlock: 900, // outputs are much longer now; don't let them get truncated
     },
   };
 
