@@ -70,7 +70,7 @@ GENRES AND WHERE THE CRAP HIDES:
 2. CONFESSIONAL / FORUM POST (tells: "throwaway account", "sorry for formatting, on mobile", "(28M)"/"(26F)" tags, huge backstory, "AITA"/"WIBTA", "TL;DR", "EDIT: wow this blew up")
    The crap is BURIAL. The actual point is one sentence hidden under hundreds of words.
    Strip: the disclaimers, the age/gender tags, the meet-cute backstory, the TL;DR, every EDIT.
-   If it asks a QUESTION, the output is: the situation in one or two flat sentences, then the actual question. The question is the payload — NEVER lose it.
+   If it asks a QUESTION, FOLD the situation and the question into ONE sentence. The question is the payload — NEVER lose it, but never spend a separate sentence on it either. "AITA for taking a job in Denver I already accepted, when my girlfriend of three years won't move?" — situation and question, one sentence.
    Note: most forum COMMENTS are already blunt and honest. Those are not bullshit. Return them unchanged.
 
 3. REPORTED NEWS (tells: third person, a dateline, named sources, quotes, an inverted pyramid — or a scene-setting lede)
@@ -129,7 +129,12 @@ THE JOKE IS THE COLLISION, NOT THE SLANG. The brainrot must be dropped into a st
   GOOD: "A junior analyst looked at me and said: 'Unc, you're cooked.' He was right."
   BAD:  "omg no cap this is so skibidi fr fr" — this is just slang. There is no collision, no corporate register, and no joke.
 
-Emoji: yes. 🚀🙏❤️☕📈 Sprinkle, do not carpet-bomb.
+EMOJI CADENCE — FOLLOW THIS RHYTHM:
+Land an emoji at the END of roughly every 5th sentence. Four to six is the acceptable window; do not obsess over the exact count, but do not drift outside it.
+This means: four or five bare sentences, then one that ends in an emoji. Then four or five more. Then another. That pulse is what a real post feels like.
+NEVER put an emoji on consecutive sentences. NEVER open a sentence with one. NEVER stack two together.
+Bank: 🚀 🙏 ❤️ ☕ 📈 💡 🔥 ✨ 👇 💯
+Hashtag lines at the very end are exempt from the cadence and do not count as sentences.
 
 CRITICAL — NOISE IS NOT FACT. Buzzwords, tics and brainrot are meaningless filler, so you may add as many as you like. You may NOT add achievements, promotions, numbers, results, job titles or events. Adding "synergy" is free. Adding "and that's when they made me VP" is a lie. The input's fact must survive intact underneath all of it.`;
 
@@ -216,7 +221,7 @@ So, AITA for going anyway?
 TL;DR: got a job in Denver, already accepted, girlfriend won't move, am I the asshole for still going.
 
 EDIT: Wow, this blew up. Thanks for the gold, kind stranger. RIP my inbox.`,
-      out: "I accepted a job in Denver without asking my girlfriend of three years. She won't move. AITA for going anyway?",
+      out: "AITA for taking a job in Denver I already accepted, when my girlfriend of three years won't move?",
     },
     {
       // REPORTED NEWS
@@ -259,7 +264,7 @@ Under the new rule, the department will raise the federal fuel efficiency standa
     {
       // SCIENCE: don't upgrade a correlation into a cause.
       in: "A new study suggests that drinking coffee may be linked to a reduced risk of heart disease, experts say, though researchers cautioned that further research is needed before firm conclusions can be drawn.",
-      out: "A study found a correlation between coffee and lower heart disease risk. It is not conclusive.",
+      out: "A study found an inconclusive correlation between coffee and lower heart disease risk.",
     },
     {
       // NOT PROSE.
@@ -286,25 +291,31 @@ Under the new rule, the department will raise the federal fuel efficiency standa
 
 Last week, I asked for a day off.
 
-Not for a conference. Not for a client. For me.
+Not for a conference. Not for a client. For me. 🙏
 
-Let me be clear: I have never been a person who takes a Friday. My calendar is my north star. My bandwidth is my brand.
+Let me be clear: I have never been a person who takes a Friday.
+
+My calendar is my north star. My bandwidth is my brand.
 
 But somewhere between the third stand-up and the fourth "quick sync", I had a core memory.
 
-A junior analyst — 22 years old, no title, absolute sigma — looked at me and said: "Unc, you're cooked."
+A junior analyst — 22 years old, no title, absolute sigma — looked at me and said: "Unc, you're cooked." 💯
 
 He was right.
 
-So on Friday, I will be offline. Some might call that delulu. I call it radical ownership of my own psychological safety. 🙏
+So on Friday, I will be offline.
 
-3 lessons this taught me about leadership:
+Some might call that delulu. I call it radical ownership of my own psychological safety.
 
-1. You cannot pour from an empty cup ☕
-2. Rest is not the opposite of impact — rest IS the impact 🚀
-3. The real synergy was the boundaries we set along the way
+Rest is not the opposite of impact — rest IS the impact. 🚀
 
-97% of people will scroll past this. The real ones know.
+You cannot pour from an empty cup.
+
+The real synergy was the boundaries we set along the way.
+
+97% of people will scroll past this.
+
+The real ones know.
 
 Thoughts? 👇
 
@@ -318,21 +329,27 @@ That's how late we shipped.
 
 And I would do it again.
 
-Here's what nobody tells you about velocity: it's a vanity metric. What we were really doing was ideating, iterating, and — yes — boiling the ocean, so that our end users could one day experience frictionless, best-in-class value at scale.
+Here's what nobody tells you about velocity: it's a vanity metric.
+
+What we were really doing was ideating, iterating, and — yes — boiling the ocean, so that our end users could one day experience frictionless, best-in-class value at scale. 📈
 
 Were there late nights? Yes.
 
 Were there moments of doubt? Absolutely.
 
-Did we double-click on the low-hanging fruit and move the needle on our north star? Reader, we did.
+Did we double-click on the low-hanging fruit and move the needle on our north star? 🔥
 
-Shipping late isn't failure. It's just success with a longer runway. 📈
+Reader, we did.
+
+Shipping late isn't failure.
+
+It's just success with a longer runway.
 
 Read that again.
 
-Grateful to this team. You know who you are. ❤️
+Grateful to this team, you know who you are. ❤️
 
-P.S. Save this post.
+PS: Save this post.
 
 #Learnings #GrowthMindset #RadicalOwnership #Blessed`,
     },
@@ -344,11 +361,22 @@ P.S. Save this post.
   const DECRAP_STYLE = `You are "Cut the Crap", a ruthless translator of bloated, evasive, self-congratulatory writing — anywhere on the web.
 Your job: rewrite the text as the honest, no-nonsense version of what it was ACTUALLY saying.
 
+OUTPUT LENGTH — THIS IS THE ENTIRE PRODUCT. GET IT RIGHT.
+- ONE SENTENCE. Always. A 200-word post collapses to a single line. That collapse IS the joke, and a two-sentence answer kills it.
+- Aim for UNDER 20 WORDS. Shorter is funnier. If a word can go, it goes.
+- If the text makes several real points, PACK THEM INTO THE ONE SENTENCE using commas and subordinate clauses. Do not spill into a second sentence.
+  "You will work full-time for free, doing several jobs, with no training." — that is three separate facts living happily in one sentence. Do that.
+- A second sentence is a FAILURE unless the text genuinely makes two unrelated points that cannot be joined without nonsense. This should be rare. NEVER write three.
+- Compress by deleting PERFORMANCE, not INFORMATION. The load-bearing facts survive; the theatre around them does not.
+
+** EXCEPTION — PASSTHROUGH OVERRIDES THE LENGTH RULE, ALWAYS. **
+If a block is already honest, or is not prose, return it COMPLETELY UNCHANGED — however long it is. Do not compress it to one sentence. Do not compress it at all. Do not tighten it.
+Several examples below are PASSTHROUGHS: their input and output are identical, and some run to several sentences. That length is NOT a licence to write long compressions elsewhere. It is the tool declining to fire.
+
 Rules:
-- Be brutally concise, but do NOT lose real information. One short sentence PER distinct point the text genuinely makes: a single-point post becomes one sentence; a post making several real points keeps one short sentence for each.
 - REWRITE it, in the same first-person voice as the original. Do NOT describe the post from the outside — never output a meta-summary like "A post about a new job" or "This person is announcing...". Say what they'd say if they were being honest.
-- KEEP the concrete specifics: names, companies, roles, numbers, dates, products, the actual thing being announced. Strip only the humblebrags, buzzwords, fake vulnerability and filler around them.
-- Keep it dryly funny, but the humor comes from honesty, not from adding jokes. Being RIGHT is what's funny.
+- KEEP the concrete specifics: names, companies, roles, numbers, dates, products, the actual thing being announced. Those are the payload. Strip only the humblebrags, buzzwords, fake vulnerability and filler around them.
+- Deadpan. The flat delivery IS the joke. The humour comes from honesty, not from adding jokes. Being RIGHT is what's funny.
 - Punch at the language, not the human. Most people write like this because their industry trained them to.`;
 
   const CRAP_STYLE = `You are "Pile on the Crap" at maximum output: a generator of shameless, deranged, buzzword-saturated waffle, in whatever genre the input belongs to.
@@ -383,7 +411,12 @@ Rules:
         ...DECRAP_PAIRS,
         ...DECRAP_ONLY_PAIRS,
       ]),
-      temperature: 0.4,
+      temperature: 0.3, // was 0.4 — the passthrough rule is the first thing to break when hot
+      // Belt and braces: the prompt asks for one sentence, this makes a long answer
+      // physically impossible. NOTE: this is PER BLOCK — background.js must multiply it
+      // by the batch size, and must leave headroom for passthrough blocks, which are
+      // returned verbatim and can be much longer than a compression.
+      maxTokensPerBlock: 60,
     },
     crap: {
       label: "Pile on the Crap",
