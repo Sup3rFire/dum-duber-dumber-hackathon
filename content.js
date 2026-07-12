@@ -1,7 +1,11 @@
-// Content script: find bloated prose blocks, send them to the background worker
-// for compression, and swap them in place. Reversible when toggled OFF.
-// Runs on every page (see manifest <all_urls>) but stays dormant until the
-// current site is switched ON in the popup.
+// Content script: find prose blocks, send them to the background worker to be
+// transformed in the current MODE, and swap them in place. Reversible: switching
+// back to "off" restores the originals.
+//
+// The per-site setting is now a MODE string, not a boolean:
+//   "off" | "decrap-mild" | "decrap-extreme" | "crap-mild" | "crap-extreme"
+// (a legacy boolean `true` is read as "decrap-extreme" for back-compat.)
+// Runs on every page (see manifest <all_urls>) but stays dormant on "off".
 
 (function () {
   const MIN_CHARS = 150; // minimum block length to bother compressing
@@ -38,11 +42,19 @@
     "SAMP",
   ]);
 
-  let active = false;
+  let mode = "off"; // current per-site mode
+  let active = false; // derived: mode !== "off"
   let writing = false; // true while we mutate the DOM, to ignore our own mutations
   let pageCounted = false; // ensures "pages processed" only increments once per activation
   let observer = null;
   let rescanTimer = null;
+
+  // Normalize whatever is stored for this host into a mode string.
+  function normalizeMode(v) {
+    if (v === true) return "decrap-extreme"; // legacy boolean
+    if (typeof v === "string" && v !== "off") return v;
+    return "off";
+  }
 
   const originals = new Map(); // element -> original innerHTML (for restore)
 
@@ -135,32 +147,34 @@
   function applyResults(batch, results) {
     // results: [{ id, text }] with id = "b<index-within-batch>"
     const byId = new Map(results.map((r) => [String(r.id), r.text]));
-    let wordsBefore = 0;
-    let wordsAfter = 0;
+    let wordsCut = 0; // words removed (decrapify shrinks)
+    let wordsAdded = 0; // words added (crapify grows)
     let swapped = 0;
 
     withWriteGuard(() => {
       batch.forEach((b, i) => {
-        const compressed = byId.get("b" + i);
-        if (compressed == null) return; // failed/omitted — leave original
-        if (compressed.trim() === b.text.trim()) {
-          // model judged it already honest; mark so we don't retry it
+        const next = byId.get("b" + i);
+        if (next == null) return; // failed/omitted — leave original
+        if (next.trim() === b.text.trim()) {
+          // model left it as-is (already honest / not really prose); mark so we
+          // don't retry it, but keep no restore entry.
           b.el.setAttribute(MARK, "1");
           return;
         }
         originals.set(b.el, b.el.innerHTML);
         b.el.setAttribute(MARK, "1");
-        b.el.textContent = compressed;
-        wordsBefore += wordCount(b.text);
-        wordsAfter += wordCount(compressed);
+        b.el.textContent = next;
+        const delta = wordCount(next) - wordCount(b.text);
+        if (delta < 0) wordsCut += -delta;
+        else wordsAdded += delta;
         swapped++;
       });
     });
 
     log("applied", swapped, "swap(s)");
-    if (wordsBefore > 0) {
+    if (wordsCut > 0 || wordsAdded > 0) {
       browser.runtime
-        .sendMessage({ type: "addStats", wordsBefore, wordsAfter })
+        .sendMessage({ type: "addStats", wordsCut, wordsAdded })
         .catch(() => {});
     }
   }
@@ -207,6 +221,7 @@
       try {
         const resp = await browser.runtime.sendMessage({
           type: "compress",
+          mode,
           blocks: batch.map((b, i) => ({ id: "b" + i, text: b.text })),
         });
         log("compress response:", resp);
@@ -260,41 +275,47 @@
     }
   }
 
-  // ---------- activation ----------
-  function activate() {
-    if (active) return;
-    log("activating on", HOST);
-    active = true;
-    pageCounted = false;
-    startObserver();
-    scan();
+  // ---------- mode transitions ----------
+  // Switching mode always tears down the previous transformation (restoring the
+  // originals) before applying the new one, so e.g. decrap-mild -> crap-extreme
+  // starts from clean source text rather than re-transforming already-changed DOM.
+  function applyMode(next) {
+    const norm = normalizeMode(next);
+    if (norm === mode) return;
+    log("mode change:", mode, "->", norm, "on", HOST);
+
+    if (active) {
+      active = false;
+      stopObserver();
+      restoreAll();
+    }
+
+    mode = norm;
+    active = mode !== "off";
+
+    if (active) {
+      pageCounted = false;
+      startObserver();
+      scan();
+    }
   }
 
-  function deactivate() {
-    if (!active) return;
-    active = false;
-    stopObserver();
-    restoreAll();
-  }
-
-  async function readSiteState() {
+  async function readSiteMode() {
     const s = await browser.storage.local.get("siteState");
     const state = s.siteState || {};
-    return state[HOST] === true;
+    return normalizeMode(state[HOST]);
   }
 
   async function init() {
-    const on = await readSiteState();
-    log("init — site toggled", on ? "ON" : "OFF", "for", HOST);
-    if (on) activate();
+    const m = await readSiteMode();
+    log("init — mode", m, "for", HOST);
+    applyMode(m);
   }
 
-  // React to popup toggles for this host.
+  // React to popup changes for this host.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes.siteState) return;
-    const on = (changes.siteState.newValue || {})[HOST] === true;
-    if (on) activate();
-    else deactivate();
+    applyMode((changes.siteState.newValue || {})[HOST]);
   });
 
   init();

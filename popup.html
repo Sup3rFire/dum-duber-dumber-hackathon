@@ -5,14 +5,17 @@
     <title>Cut the Crap</title>
     <style>
       :root {
-        --accent: #911eb4;
+        --accent: #911eb4; /* decrapify (cut) */
+        --crap: #e6194b; /* crapify (pile on) */
+        --ink: #1a1a1a;
+        --muted: #666;
       }
       body {
         font-family: system-ui, sans-serif;
-        width: 260px;
+        width: 288px;
         margin: 0;
         padding: 16px;
-        color: #1a1a1a;
+        color: var(--ink);
       }
       h1 {
         font-size: 15px;
@@ -20,58 +23,110 @@
       }
       .host {
         font-size: 12px;
-        color: #666;
-        margin-bottom: 14px;
+        color: var(--muted);
+        margin-bottom: 16px;
         word-break: break-all;
       }
-      .toggle-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-      }
-      .toggle-row span {
+
+      /* ---- current mode label ---- */
+      .mode-label {
+        text-align: center;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
+        margin-bottom: 4px;
+        min-height: 18px;
       }
-      .switch {
-        position: relative;
-        width: 44px;
-        height: 24px;
+      .mode-sub {
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 12px;
+        min-height: 14px;
       }
-      .switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
+      .mode-label.crap {
+        color: var(--crap);
       }
-      .slider {
-        position: absolute;
-        inset: 0;
-        background: #ccc;
-        border-radius: 24px;
-        transition: 0.2s;
+      .mode-label.decrap {
+        color: var(--accent);
+      }
+
+      /* ---- spectrum slider ---- */
+      .spectrum {
+        margin: 0 2px 6px;
+      }
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 6px;
+        background: linear-gradient(
+          to right,
+          var(--crap) 0%,
+          #f2b6c2 42%,
+          #d9d9d9 50%,
+          #c9b0d6 58%,
+          var(--accent) 100%
+        );
+        outline: none;
+        margin: 0;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid var(--ink);
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid var(--ink);
         cursor: pointer;
       }
-      .slider::before {
-        content: "";
-        position: absolute;
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        top: 3px;
-        background: #fff;
-        border-radius: 50%;
-        transition: 0.2s;
+      .ticks {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        color: var(--muted);
+        margin-top: 6px;
+        line-height: 1.2;
       }
-      input:checked + .slider {
-        background: var(--accent);
+      .ticks span {
+        flex: 1;
+        text-align: center;
       }
-      input:checked + .slider::before {
-        transform: translateX(20px);
+      .ticks span:first-child {
+        text-align: left;
       }
+      .ticks span:last-child {
+        text-align: right;
+      }
+      .ends {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+      .ends .crap {
+        color: var(--crap);
+      }
+      .ends .decrap {
+        color: var(--accent);
+      }
+
+      /* ---- stats ---- */
       .stats {
         border-top: 1px solid #eee;
         padding-top: 12px;
+        margin-top: 18px;
       }
       .stat {
         display: flex;
@@ -81,7 +136,12 @@
       }
       .stat .val {
         font-weight: 700;
+      }
+      .stat .cut {
         color: var(--accent);
+      }
+      .stat .add {
+        color: var(--crap);
       }
       .stats-title {
         font-size: 11px;
@@ -104,19 +164,29 @@
     <h1>Cut the Crap</h1>
     <div class="host" id="host">—</div>
 
-    <div class="toggle-row">
-      <span>Decrappify this site</span>
-      <label class="switch">
-        <input type="checkbox" id="toggle" />
-        <span class="slider"></span>
-      </label>
+    <div class="mode-label" id="modeLabel">Normal</div>
+    <div class="mode-sub" id="modeSub">Leaves the page untouched</div>
+
+    <div class="spectrum">
+      <input type="range" id="spectrum" min="0" max="4" step="1" value="2" />
+      <div class="ticks">
+        <span>Extreme</span>
+        <span>Mild</span>
+        <span>Normal</span>
+        <span>Mild</span>
+        <span>Extreme</span>
+      </div>
+      <div class="ends">
+        <span class="crap">← Pile on the Crap</span>
+        <span class="decrap">Cut the Crap →</span>
+      </div>
     </div>
 
     <div class="stats">
       <div class="stats-title">Lifetime</div>
-      <div class="stat"><span>Words cut</span><span class="val" id="wordsCut">0</span></div>
+      <div class="stat"><span>Words cut</span><span class="val cut" id="wordsCut">0</span></div>
+      <div class="stat"><span>Words piled on</span><span class="val add" id="wordsAdded">0</span></div>
       <div class="stat"><span>Pages processed</span><span class="val" id="pages">0</span></div>
-      <div class="stat"><span>Overall shorter</span><span class="val" id="percent">0%</span></div>
     </div>
 
     <div class="footer">
