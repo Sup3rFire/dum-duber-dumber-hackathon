@@ -184,19 +184,44 @@
     return !/\b(?:less|collapse)\b/.test(label);
   }
 
-  // LinkedIn keeps the rest of a post behind this control. Open all collapsed
-  // posts before collecting prose so the model always receives the full text.
+  // A button is worth expanding once it's within one viewport of the reader.
+  // Clicking only nearby posts (rather than every button in the feed) is what
+  // stops the page from being dragged to the bottom; the rest expand naturally
+  // as the MutationObserver rescans on scroll.
+  function isNearLinkedInExpandButton(button) {
+    const r = button.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return false; // detached / hidden
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    return r.bottom >= -vh && r.top <= vh * 2;
+  }
+
+  // LinkedIn keeps the rest of a post behind this control. Open collapsed posts
+  // near the viewport before collecting prose so the model receives the full
+  // text. A programmatic .click() focuses the button and the browser scrolls
+  // that focused element into view, so we (a) only click buttons already near
+  // the reader and (b) pin the scroll offset across the pass — otherwise the
+  // feed jumps to whichever post was expanded last.
   // Returns true when React needs a frame to render at least one expanded post.
   function expandLinkedInPosts() {
     if (!isLinkedIn) return false;
 
+    const scroller = document.scrollingElement || document.documentElement;
+    const sx = scroller.scrollLeft;
+    const sy = scroller.scrollTop;
     let expanded = false;
     for (const button of document.querySelectorAll(LINKEDIN_EXPAND_SEL)) {
       if (clickedLinkedInExpandButtons.has(button)) continue;
+      // Don't mark far-off buttons as seen — they should still expand once the
+      // reader scrolls them into range on a later scan.
+      if (!isNearLinkedInExpandButton(button)) continue;
       clickedLinkedInExpandButtons.add(button);
       if (!isCollapsedLinkedInExpandButton(button)) continue;
       button.click();
       expanded = true;
+    }
+    if (expanded && (scroller.scrollLeft !== sx || scroller.scrollTop !== sy)) {
+      scroller.scrollLeft = sx;
+      scroller.scrollTop = sy;
     }
     return expanded;
   }
@@ -341,12 +366,46 @@
     });
   }
 
+  // Pick a real content element near the top of the viewport to hold steady
+  // across a DOM write. We hit-test a little way down the viewport (below any
+  // sticky nav) and climb out of fixed/sticky chrome so we anchor to page
+  // content, not the header. Returns the element and its current screen offset.
+  function pickScrollAnchor() {
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const x = Math.min(vw * 0.5, vw - 1);
+    for (const frac of [0.3, 0.5, 0.15, 0.7]) {
+      let el = document.elementFromPoint(x, Math.round(vh * frac));
+      while (el && el !== document.body && el !== document.documentElement) {
+        const pos = getComputedStyle(el).position;
+        if (pos !== "fixed" && pos !== "sticky") break;
+        el = el.parentElement;
+      }
+      if (el && el !== document.body && el !== document.documentElement) {
+        return { el, top: el.getBoundingClientRect().top };
+      }
+    }
+    return null;
+  }
+
   function withWriteGuard(fn) {
     writing = true;
     if (observer) observer.disconnect();
+    // Rewrites change block heights (crapify grows, decrapify shrinks); when
+    // that happens above the viewport the page appears to jump. Anchor a visible
+    // element and, after the write, correct scrollTop by however far it moved so
+    // the reader's spot stays put.
+    const anchor = pickScrollAnchor();
     try {
       fn();
     } finally {
+      if (anchor && anchor.el.isConnected) {
+        const delta = anchor.el.getBoundingClientRect().top - anchor.top;
+        if (delta) {
+          const scroller = document.scrollingElement || document.documentElement;
+          scroller.scrollTop += delta;
+        }
+      }
       if (observer && active) observer.observe(document.body, OBS_OPTS);
       writing = false;
     }
