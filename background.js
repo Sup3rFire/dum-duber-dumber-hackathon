@@ -291,6 +291,154 @@ function countSessionPage(session, mode) {
   addStats({ pages: 1 });
 }
 
+// ---- per-site content-script injection ----
+// There is no static <all_urls> content script (see manifest.json) — instead
+// content.js is injected only into origins the user has actually enabled, so
+// the extension never carries a blanket "read and change all your data on all
+// websites" grant. popup.js requests host access for one origin at a time (on
+// the enabling click, so it's a real user gesture); completing the enable
+// (writing siteState + injecting the CURRENT tab) happens here in the
+// background via completeEnable() below, because the popup itself may not
+// survive long enough to do it (see that section for why). For every
+// SUBSEQUENT load of an enabled site (reload, new tab), the tabs.onUpdated
+// listener further down re-derives "should this inject?" fresh from siteState
+// + the live permission grant — no persistent registration to keep in sync,
+// nothing extra to reconcile on install/startup.
+
+// Mirrors content.js's normalizeMode: which stored values count as "on".
+// Legacy values (`true`, the old 5-stop keys) are folded in the same way.
+function isEnabledMode(v) {
+  if (v === true) return true; // legacy boolean
+  return typeof v === "string" && (v.startsWith("decrap") || v.startsWith("crap"));
+}
+
+// http/https only — the only schemes we ever hold host permission for.
+function hostnameOf(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+// Bring a tab to life immediately (used both by doCompleteEnable, for the
+// enabling click, and by maybeActivateOnLoad, for a qualifying navigation
+// below). If a script is already resident the data-ctcLoaded guard in
+// content.js makes a repeat injection a harmless no-op.
+async function injectContentScript(tabId) {
+  try {
+    await browser.scripting.executeScript({
+      target: { tabId },
+      files: ["lib/browser-polyfill.js", "content.js"],
+    });
+  } catch (e) {
+    log("executeScript failed:", String(e.message || e));
+  }
+}
+
+// ---- completing an enable started in the popup ----
+// The popup can't reliably finish enabling a NEW site itself: on Firefox the
+// host-permission doorhanger is anchored outside the popup panel, so clicking
+// Allow closes the popup and kills its handler before it can write siteState.
+// So the popup only records { host, mode, tabId } in pendingEnable and fires
+// the request; we finish the job here, in the background worker, which stays
+// alive regardless of what happens to the popup. Serialized so the two
+// triggers below (a fresh grant's permissions.onAdded; an already-granted
+// re-enable's explicit message) can't race into a double-apply.
+let enableChain = Promise.resolve();
+function completeEnable() {
+  enableChain = enableChain
+    .then(doCompleteEnable)
+    .catch((e) => log("completeEnable failed:", String(e.message || e)));
+  return enableChain;
+}
+
+async function doCompleteEnable() {
+  const s = await browser.storage.local.get(["pendingEnable", "siteState"]);
+  const pending = s.pendingEnable;
+  if (!pending || !pending.host) return;
+
+  // Confirm the grant actually landed — covers a denied request that still
+  // reached us, and filters out permissions.onAdded firing for an unrelated
+  // origin (e.g. a provider host just granted from Settings).
+  const pattern = `*://${pending.host}/*`;
+  const granted = await browser.permissions
+    .contains({ origins: [pattern] })
+    .catch(() => false);
+  if (!granted) return;
+
+  // Consume the intent up front so a second trigger (both onAdded and the
+  // popup message can fire for the same enable) is a harmless no-op.
+  await browser.storage.local.remove("pendingEnable");
+
+  // Same key gate the popup used to run before it could finish an enable
+  // itself. Missing key -> open Settings and leave the site on Normal; the
+  // permission stays granted, so re-enabling after adding a key won't re-prompt.
+  const { apiKey } = await getSettings();
+  if (!apiKey) {
+    browser.runtime.openOptionsPage();
+    return;
+  }
+
+  const state = s.siteState || {};
+  state[pending.host] = pending.mode;
+  await browser.storage.local.set({ siteState: state });
+
+  if (pending.tabId != null) injectContentScript(pending.tabId);
+}
+
+// A fresh grant fires this even though the popup that requested it has
+// already closed (the Firefox doorhanger-closes-the-popup case).
+browser.permissions.onAdded.addListener(() => completeEnable());
+
+// Fires on every page load. tab.url is only visible to us here for origins we
+// already hold host permission for (Chrome/Firefox strip it otherwise), so
+// this is naturally a no-op for every site we have no business touching.
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete") return;
+  maybeActivateOnLoad(tabId, tab && tab.url).catch((e) =>
+    log("maybeActivateOnLoad failed:", String(e.message || e))
+  );
+});
+
+// Re-derives injection from scratch on each load: is this site enabled, and
+// do we still hold the permission it needs? If the grant is gone — revoked
+// outside the extension, or siteState predates this permission model — try
+// requesting it (works if this happens to run in a user-gesture context; a
+// background tab-load event usually isn't one, so this is best-effort), and
+// if that fails too, revert the site to Normal so stored state matches
+// reality instead of silently going dark. Re-enabling from the popup will
+// re-request cleanly.
+async function maybeActivateOnLoad(tabId, url) {
+  const host = hostnameOf(url);
+  if (!host) return;
+
+  const s = await browser.storage.local.get("siteState");
+  const state = s.siteState || {};
+  if (!isEnabledMode(state[host])) return;
+
+  const pattern = `*://${host}/*`;
+  let granted = await browser.permissions.contains({ origins: [pattern] }).catch(() => false);
+
+  if (!granted) {
+    try {
+      granted = await browser.permissions.request({ origins: [pattern] });
+    } catch {
+      granted = false;
+    }
+  }
+
+  if (!granted) {
+    state[host] = "off";
+    await browser.storage.local.set({ siteState: state });
+    return;
+  }
+
+  await injectContentScript(tabId);
+}
+
 // ---- message router ----
 browser.runtime.onMessage.addListener((msg) => {
   if (!msg || !msg.type) return;
@@ -298,5 +446,6 @@ browser.runtime.onMessage.addListener((msg) => {
   // per-page-load session id (no URL).
   if (msg.type === "compress") return handleTransform(msg.blocks || [], msg.mode, msg.session);
   if (msg.type === "addStats") return addStats(msg).then(() => ({ ok: true }));
+  if (msg.type === "completeEnable") return completeEnable();
   return;
 });

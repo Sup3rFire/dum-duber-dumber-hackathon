@@ -22,7 +22,7 @@ Firefox-first (Manifest V3), portable to Chrome with minimal changes.
 1. Go to `about:debugging` → **This Firefox** → **Load Temporary Add-on…**
 2. Select `manifest.json` in this folder.
 3. Open the extension's **Settings** (via the popup's "Settings / API key" link), pick a **provider** (OpenAI, Anthropic, Google, or MiniMax), and paste that provider's API key. Each provider keeps its own key + model, so you can switch freely without re-entering anything.
-4. Visit a page, click the toolbar icon, then select **Crapify**, **Normal**, or **Decrapify** for that site.
+4. Visit a page, click the toolbar icon, then select **Crapify** or **Decrapify** for that site. The first time you enable a site, the browser will prompt for permission to access that one site — the extension has no blanket "access all websites" permission (see [How it works](#how-it-works)).
 
 ## Providers
 
@@ -41,6 +41,7 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 ## How it works
 
+- **No `<all_urls>` content script.** There's no blanket "read and change all your data on all websites" permission. Enabling a site requests host access for *that one origin* (`*://host/*`) on the click that turns it on. On Firefox that permission prompt is a doorhanger anchored outside the popup panel, so accepting it closes the popup mid-click — the popup can't reliably finish the job itself. Instead it only records the intent (`pendingEnable: { host, mode, tabId }`) before firing the request, and the background worker — which outlives the popup — completes the enable (API-key check, `siteState` write, immediate injection into the current tab via `browser.scripting.executeScript`) once the grant lands, via `browser.permissions.onAdded` (new grant) or a direct message (already-granted re-enable, which shows no prompt at all). Every subsequent load of that site (reload, new tab) is caught by a `tabs.onUpdated` listener in the background worker, which re-derives "should this inject?" fresh each time from `siteState` + the live permission grant — no persistent registration to keep in sync. If that grant is ever missing when a load needs it (revoked outside the extension, stale data), the background tries requesting it and otherwise reverts the site to Normal so stored state matches reality. Turning a site off keeps the granted permission, so re-enabling later never re-prompts.
 - Every site starts on **Normal**. The chosen mode is remembered per domain (like Dark Reader). Stored as a string: `off` / `crap` / `decrap` (legacy values — the old boolean `true` and the old 5-stop keys — are folded onto these).
 - On any non-Normal mode, the content script finds prose blocks (≥150 chars), batches them to the background worker → the selected provider (with that mode's voice) → swaps the text in place as each batch resolves. No page refresh.
 - While a block is in flight it shows a pulsing on-brand placeholder (`🔪 cutting the crap…` / `🍳 piling on the crap…`) so the wait reads as activity; the real original is stashed first and restored if the model returns nothing, errors, or leaves the text unchanged.
@@ -51,12 +52,12 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 | File | Role |
 |---|---|
-| `manifest.json` | MV3 config (Firefox event page, `<all_urls>` content script, popup, options) |
-| `content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode |
+| `manifest.json` | MV3 config (Firefox event page, popup, options) — no static content script; no required host permissions |
+| `content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode. Injected dynamically, only into enabled origins |
 | `prompt.js` | **The voices** — two mode prompts (cut/pile) + few-shot examples. Iterate on the humor here. |
 | `providers.js` | **The backends** — one adapter per LLM (OpenAI/Claude/Gemini/MiniMax): endpoint, headers, body shape, response parsing. Also resolves the per-provider settings schema. |
-| `background.js` | Provider-agnostic LLM calls (mode + provider aware), response cache, lifetime stats |
-| `popup.html` / `popup.js` | Per-site mode selector + lifetime stats |
+| `background.js` | Provider-agnostic LLM calls (mode + provider aware), response cache, lifetime stats, per-site `scripting` injection |
+| `popup.html` / `popup.js` | Per-site mode selector (requests host permission + triggers injection on enable) + lifetime stats |
 | `options.html` / `options.js` | Provider picker + per-provider API key & model |
 | `lib/browser-polyfill.js` | `browser.*` promise API (Firefox native; needed for Chrome) |
 | `icons/` | Placeholder icons (replace later) |

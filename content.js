@@ -7,9 +7,19 @@
 // Legacy stored values are folded in for back-compat: the old boolean `true`
 // and the old 5-stop keys ("decrap-mild"/"decrap-extreme"/"crap-mild"/
 // "crap-extreme") map onto "decrap"/"crap".
-// Runs on every page (see manifest <all_urls>) but stays dormant on "off".
+// Injected only into sites the user has enabled — see background.js
+// (doCompleteEnable / maybeActivateOnLoad). No static <all_urls> content
+// script; a site gets this file only after the user grants it access.
 
 (function () {
+  // A site can receive this file twice on the same page-load: an immediate
+  // scripting.executeScript from doCompleteEnable (so activation doesn't
+  // require a reload) and, on a near-simultaneous tabs.onUpdated firing,
+  // maybeActivateOnLoad's own injection can both target the tab that was just
+  // enabled. Only the first instance stays resident.
+  if (document.documentElement.dataset.ctcLoaded) return;
+  document.documentElement.dataset.ctcLoaded = "1";
+
   // Identifies THIS page-load to the background worker for page-count dedup —
   // not the URL. A fresh id is minted every time this content script runs, i.e.
   // on every load, refresh, and new tab, so a refreshed/reopened page counts

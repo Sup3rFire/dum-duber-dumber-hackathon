@@ -9,8 +9,9 @@
       "strict_min_version": "116.0"
     }
   },
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "optional_host_permissions": [
+    "<all_urls>",
     "https://api.openai.com/v1/*",
     "https://api.anthropic.com/v1/*",
     "https://generativelanguage.googleapis.com/v1beta/*",
@@ -20,13 +21,6 @@
     "service_worker": "sw.js",
     "scripts": ["lib/browser-polyfill.js", "prompt.js", "providers.js", "background.js"]
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["lib/browser-polyfill.js", "content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_title": "Cut the Crap",
     "default_popup": "popup.html",
