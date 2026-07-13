@@ -10,6 +10,15 @@
 // Runs on every page (see manifest <all_urls>) but stays dormant on "off".
 
 (function () {
+  // Identifies THIS page-load to the background worker for page-count dedup —
+  // not the URL. A fresh id is minted every time this content script runs, i.e.
+  // on every load, refresh, and new tab, so a refreshed/reopened page counts
+  // again while re-scans within the same load (scroll, MutationObserver) don't.
+  // No page-identifying data (URL or otherwise) is ever sent or stored.
+  const PAGE_SESSION =
+    (self.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+    Date.now().toString(36) + Math.random().toString(36).slice(2);
+
   // Minimum block length to bother transforming, PER MODE. Crapify inflates, so
   // it's worth firing on short sentences; decrapify compresses, so there's little
   // point on text that's already short. `minChars()` reads the active mode.
@@ -410,7 +419,7 @@
       const resp = await browser.runtime.sendMessage({
         type: "compress",
         mode: batchMode,
-        url: location.href, // lets the background count paid pages, deduped per (url, mode)
+        session: PAGE_SESSION, // lets the background count pages, deduped per (page-load, mode) — no URL sent
         blocks: batch.map((b, i) => ({ id: "b" + i, text: b.text })),
       });
       // If the mode changed while this was in flight, the flip's restoreAll has

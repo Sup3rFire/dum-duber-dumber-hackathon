@@ -7,7 +7,7 @@
 
 const CACHE_PREFIX = "c:"; // storage key prefix for cached transformations
 
-const DEBUG = true; // set false to silence
+const DEBUG = false; // set false to silence
 const log = (...a) => DEBUG && console.log("%c[CTC-bg]", "color:#911eb4", ...a);
 log("background worker loaded");
 
@@ -25,7 +25,7 @@ async function getSettings() {
   return CTC_PROVIDERS.resolveSettings(store);
 }
 
-// ---- cache (in-memory + storage.local) ----
+// ---- cache (in-memory only — rewritten page text is never written to disk) ----
 const memCache = new Map();
 
 function hash(str) {
@@ -39,7 +39,7 @@ function hash(str) {
 // vs decrapified must never collide, and Claude's take must not collide with
 // GPT's (same model string can even repeat across vendors). Text is
 // whitespace-normalized first so the same post reloaded with slightly reflowed
-// whitespace still hits the persistent cache instead of paying for another call.
+// whitespace still hits the in-memory cache instead of paying for another call.
 const fingerprint = (t) => (t || "").replace(/\s+/g, " ").trim();
 function cacheKey(provider, model, mode, text) {
   return (
@@ -48,19 +48,15 @@ function cacheKey(provider, model, mode, text) {
   );
 }
 
+// RAM only — rewritten page text is never persisted to storage.local, so it
+// doesn't outlive the background worker (cleared on browser restart / worker
+// eviction) and never touches disk.
 async function cacheGet(key) {
-  if (memCache.has(key)) return memCache.get(key);
-  const s = await browser.storage.local.get(key);
-  if (typeof s[key] === "string") {
-    memCache.set(key, s[key]);
-    return s[key];
-  }
-  return null;
+  return memCache.has(key) ? memCache.get(key) : null;
 }
 
 async function cacheSet(key, value) {
   memCache.set(key, value);
-  await browser.storage.local.set({ [key]: value });
 }
 
 // Pull the contract's JSON object out of a model reply. Providers with native
@@ -154,7 +150,7 @@ async function callLLM(blocks, provider, apiKey, model, mode) {
 // the misses hit the API. On API failure, the uncached blocks are simply omitted
 // from results (the content script leaves those blocks untouched) — one batch
 // failing never kills the page.
-async function handleTransform(blocks, mode, url) {
+async function handleTransform(blocks, mode, session) {
   const { provider, apiKey, model } = await getSettings();
   const m = mode || CTC_VOICE.DEFAULT_MODE;
   log("transform request:", blocks.length, "block(s), mode:", m, "provider:", provider, "model:", model, "key set:", !!apiKey);
@@ -172,6 +168,12 @@ async function handleTransform(blocks, mode, url) {
       .catch(() => false);
     if (!granted) return { error: "NO_HOST_PERMISSION" };
   }
+
+  // The extension is actively running on this page-load in this mode (past the
+  // no-key / no-host guards above), so it counts — once per (session, mode),
+  // regardless of whether the blocks below are served from cache or paid for.
+  // A refresh or a new tab mints a fresh session and so counts again.
+  countSessionPage(session, m);
 
   const results = [];
   const misses = [];
@@ -209,14 +211,6 @@ async function handleTransform(blocks, mode, url) {
       log(provider, "matched", matched, "of", misses.length, "block(s) by id");
 
       if (wordsCut || wordsAdded) addStats({ wordsCut, wordsAdded });
-
-      // We actually PAID for this batch (uncached API call succeeded), so this
-      // page counts — once per (url, mode). A fresh uncached load counts; the
-      // first time you flip to the other mode counts; reloads, scrolls, and
-      // flipping back to an already-computed mode hit the cache above, never
-      // reach here, and so never re-count. countPaidPage dedupes concurrent
-      // batches for the same page via a synchronous in-memory gate.
-      countPaidPage(url, m).catch(() => {});
     } catch (e) {
       log("LLM call FAILED:", String(e.message || e));
       return { results, error: String(e.message || e) };
@@ -248,7 +242,7 @@ function normalizeStats(raw) {
 }
 
 // Pure accumulation, serialized to avoid lost updates. Page DEDUP is handled
-// separately by countPaidPage() — do not route page counts through here.
+// separately by countSessionPage() — do not route page counts through here.
 function addStats({ wordsCut = 0, wordsAdded = 0, pages = 0 }) {
   // .catch keeps one failed link from poisoning every future stats update.
   statsChain = statsChain
@@ -264,85 +258,45 @@ function addStats({ wordsCut = 0, wordsAdded = 0, pages = 0 }) {
   return statsChain;
 }
 
-// ---- paid-page counting (deduped per (url, mode)) ----
-// "Pages processed" counts each (page, mode) we actually PAID to transform (an
-// uncached API call). GitHub & co. trigger many overlapping scans, and each scan
-// fans out into up to CONCURRENCY batches — so this can be invoked several times
-// for the SAME page near-simultaneously. A storage round-trip is too slow to
-// dedupe that safely (and the MV3 event page can restart mid-flight), so the
-// authoritative gate is an IN-MEMORY Set checked and mutated synchronously, with
-// no await between has() and add(). storage is only the durable backing so the
-// count survives a background restart. We store short HASHes (fragment stripped),
-// not full URLs — compact, and keeps browsing history out of storage.
-const COUNTED_PAGES_KEY = "countedPages";
-const COUNTED_PAGES_CAP = 20000;
+// ---- page counting (deduped per page-load, in-memory only) ----
+// "Pages processed" counts each (page-load, mode) the extension actively ran
+// on. The content script mints a fresh random session id per page load (a new
+// id on every refresh or new tab — see PAGE_SESSION in content.js) and sends
+// no URL at all, so nothing page-identifying is ever stored. GitHub & co.
+// trigger many overlapping scans, and each scan fans out into up to
+// CONCURRENCY batches — so this can be invoked several times for the SAME
+// page-load near-simultaneously. The gate is an IN-MEMORY Set checked and
+// mutated synchronously, with no await between has() and add(), so racing
+// batches can't double-count. This dedup set is NOT persisted — only the
+// running total (stats.pages, via addStats) is, and that's a plain number.
+// Losing the set on a background restart just means a mid-flight page-load
+// might count once more — harmless, and still bounded by the cap below.
+const COUNTED_SESSIONS_CAP = 20000;
+const countedSessions = new Set(); // "<session> <mode>" seen this worker life
 
-const countedPagesMem = new Set(); // synchronous, race-free session gate
-let countedPagesLoad = null; // shared promise: hydrate mem from storage once
+// Count a page-load exactly once per mode. Safe to call concurrently.
+function countSessionPage(session, mode) {
+  // No usable session -> count it (better than silently dropping a real
+  // page-load), but we can't dedupe it.
+  if (!session) return void addStats({ pages: 1 });
 
-function pageKey(url, mode) {
-  try {
-    const u = new URL(url);
-    u.hash = ""; // #section changes are the same page
-    return hash(u.href + "\u0000" + (mode || ""));
-  } catch {
-    return "";
-  }
-}
-
-function ensureCountedPagesLoaded() {
-  if (!countedPagesLoad) {
-    countedPagesLoad = browser.storage.local
-      .get(COUNTED_PAGES_KEY)
-      .then((got) => {
-        const seen = got[COUNTED_PAGES_KEY] || {};
-        for (const k of Object.keys(seen)) countedPagesMem.add(k);
-      })
-      .catch(() => {});
-  }
-  return countedPagesLoad;
-}
-
-// Persist a newly-counted key, serialized onto statsChain to avoid lost updates.
-function persistCountedPage(key) {
-  statsChain = statsChain
-    .then(async () => {
-      const got = await browser.storage.local.get(COUNTED_PAGES_KEY);
-      let seen = got[COUNTED_PAGES_KEY] || {};
-      seen[key] = 1;
-      // Cheap cap: if we blow the budget, start over rather than growing forever.
-      // Losing dedup history just means a few very old pages might count once
-      // more — harmless.
-      if (Object.keys(seen).length > COUNTED_PAGES_CAP) seen = { [key]: 1 };
-      await browser.storage.local.set({ [COUNTED_PAGES_KEY]: seen });
-    })
-    .catch((e) => log("persistCountedPage failed:", String(e.message || e)));
-  return statsChain;
-}
-
-// Count a paid page exactly once per (url, mode). Safe to call concurrently.
-async function countPaidPage(url, mode) {
-  await ensureCountedPagesLoaded();
-  const key = pageKey(url, mode);
-
-  // No usable URL -> count it (better than silently dropping a real paid page),
-  // but we can't dedupe it.
-  if (!key) return addStats({ pages: 1 });
-
-  // The has()/add() pair below is the whole point: it runs with NO await in
-  // between, so two batches racing for the same page can't both get past it.
-  if (countedPagesMem.has(key)) return;
-  countedPagesMem.add(key);
+  const key = session + " " + (mode || "");
+  if (countedSessions.has(key)) return;
+  // Cheap cap: if we blow the budget, start over rather than growing forever.
+  // Losing dedup history just means a few very old page-loads might count
+  // once more — harmless.
+  if (countedSessions.size >= COUNTED_SESSIONS_CAP) countedSessions.clear();
+  countedSessions.add(key);
 
   addStats({ pages: 1 });
-  persistCountedPage(key);
 }
 
 // ---- message router ----
 browser.runtime.onMessage.addListener((msg) => {
   if (!msg || !msg.type) return;
-  // "compress" kept as the wire name for back-compat; it now carries a mode + url.
-  if (msg.type === "compress") return handleTransform(msg.blocks || [], msg.mode, msg.url);
+  // "compress" kept as the wire name for back-compat; it now carries a mode +
+  // per-page-load session id (no URL).
+  if (msg.type === "compress") return handleTransform(msg.blocks || [], msg.mode, msg.session);
   if (msg.type === "addStats") return addStats(msg).then(() => ({ ok: true }));
   return;
 });
