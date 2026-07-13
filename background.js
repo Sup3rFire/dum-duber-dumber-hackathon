@@ -160,6 +160,19 @@ async function handleTransform(blocks, mode, url) {
   log("transform request:", blocks.length, "block(s), mode:", m, "provider:", provider, "model:", model, "key set:", !!apiKey);
   if (!apiKey) return { error: "NO_API_KEY" };
 
+  // The provider host is an optional permission granted from the settings page.
+  // A legacy user who had a key before this change (or who cleared the grant)
+  // may reach here without it. We can't prompt from the background (no user
+  // gesture), so surface a terminal error the same way NO_API_KEY is handled —
+  // the fix is to open Settings and hit Save, which requests the host.
+  const prov = CTC_PROVIDERS.configFor(provider);
+  if (prov.host) {
+    const granted = await browser.permissions
+      .contains({ origins: [prov.host] })
+      .catch(() => false);
+    if (!granted) return { error: "NO_HOST_PERMISSION" };
+  }
+
   const results = [];
   const misses = [];
 

@@ -419,9 +419,13 @@
       if (!active || mode !== batchMode) return;
       log("compress response:", resp);
       if (!resp) return applyResults(batch, []); // clear loaders, allow retry
-      if (resp.error === "NO_API_KEY") {
-        log("NO API KEY set — open Settings and add your provider API key");
-        active = false; // nothing we can do without a key
+      if (resp.error === "NO_API_KEY" || resp.error === "NO_HOST_PERMISSION") {
+        log(
+          resp.error === "NO_API_KEY"
+            ? "NO API KEY set — open Settings and add your provider API key"
+            : "HOST PERMISSION missing — open Settings and hit Save to grant it"
+        );
+        active = false; // nothing we can do until the user fixes it in Settings
         clearQueue();
         restoreAll(); // take down every loader we put up
         return;

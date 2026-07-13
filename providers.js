@@ -6,7 +6,8 @@
 //   buildRequest()  -> { url, headers, body }   (body is a plain object)
 //   parseResponse() -> the model's raw text (still the JSON string of the contract)
 //
-// Adding a provider = adding one entry here + one host in manifest host_permissions.
+// Adding a provider = adding one entry here (including its `host` match pattern)
+// + the same host in manifest optional_host_permissions.
 // Nothing else in the extension needs to know which vendor is behind the call.
 //
 // Loaded as a classic script (globalThis export) BEFORE background.js, and also
@@ -25,6 +26,10 @@
     openai: {
       id: "openai",
       label: "OpenAI (GPT)",
+      // Match pattern requested at runtime via permissions.request (see
+      // optional_host_permissions in the manifest). Kept in lockstep with the
+      // request URL in buildRequest below.
+      host: "https://api.openai.com/v1/*",
       apiKeyHint: "sk-...",
       apiKeyUrl: "https://platform.openai.com/api-keys",
       defaultModel: "gpt-4o-mini",
@@ -58,6 +63,7 @@
     anthropic: {
       id: "anthropic",
       label: "Anthropic (Claude)",
+      host: "https://api.anthropic.com/v1/*",
       apiKeyHint: "sk-ant-...",
       apiKeyUrl: "https://console.anthropic.com/settings/keys",
       defaultModel: "claude-3-5-haiku-latest",
@@ -98,6 +104,7 @@
     google: {
       id: "google",
       label: "Google (Gemini)",
+      host: "https://generativelanguage.googleapis.com/v1beta/*",
       apiKeyHint: "AIza...",
       apiKeyUrl: "https://aistudio.google.com/apikey",
       defaultModel: "gemini-2.5-flash",
@@ -132,6 +139,7 @@
     minimax: {
       id: "minimax",
       label: "MiniMax",
+      host: "https://api.minimax.io/v1/*",
       apiKeyHint: "eyJ... (JWT)",
       apiKeyUrl: "https://platform.minimax.io/user-center/basic-information/interface-key",
       defaultModel: "MiniMax-M2.5",

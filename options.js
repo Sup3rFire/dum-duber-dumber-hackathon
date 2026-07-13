@@ -19,7 +19,7 @@ let apiKeys = {};
 let models = {};
 
 function populateProviders() {
-  providerEl.innerHTML = "";
+  providerEl.replaceChildren();
   for (const p of Object.values(PROVIDERS)) {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -36,12 +36,18 @@ function renderProvider() {
   apiKeyEl.placeholder = prov.apiKeyHint || "";
   apiKeyEl.value = apiKeys[prov.id] || "";
 
-  apiKeyLinkEl.innerHTML = prov.apiKeyUrl
-    ? `<a href="${prov.apiKeyUrl}" target="_blank" rel="noopener">Get a key.</a>`
-    : "";
+  // The "Get a key." anchor lives in options.html; just point it at the current
+  // provider's key page, or hide it when the provider has no such URL.
+  if (prov.apiKeyUrl) {
+    apiKeyLinkEl.href = prov.apiKeyUrl;
+    apiKeyLinkEl.hidden = false;
+  } else {
+    apiKeyLinkEl.removeAttribute("href");
+    apiKeyLinkEl.hidden = true;
+  }
 
   modelEl.value = models[prov.id] || prov.defaultModel;
-  modelListEl.innerHTML = "";
+  modelListEl.replaceChildren();
   for (const m of prov.models || []) {
     const opt = document.createElement("option");
     opt.value = m;
@@ -80,6 +86,25 @@ async function load() {
 
 async function save() {
   captureCurrent();
+
+  // The provider hosts are optional_host_permissions, so a fresh install ships
+  // with zero remote access. Request just the selected provider's host here, on
+  // the Save click — permissions.request() needs a user gesture, and this is one.
+  // captureCurrent() above is synchronous, so no await breaks the gesture chain.
+  const prov = configFor(providerEl.value);
+  if (prov.host) {
+    let granted = false;
+    try {
+      granted = await browser.permissions.request({ origins: [prov.host] });
+    } catch {
+      granted = false;
+    }
+    if (!granted) {
+      statusEl.textContent = `${prov.label} needs host access to run — not saved.`;
+      return;
+    }
+  }
+
   await browser.storage.local.set({
     provider: providerEl.value,
     apiKeys,
