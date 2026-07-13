@@ -160,7 +160,7 @@
     return "off";
   }
 
-  const originals = new Map(); // element -> restore snapshot { html } | { text }
+  const originals = new Map(); // element -> restore snapshot { frag } | { overlay } | { text }
 
   // Virtualized feeds (Reddit, LinkedIn) unmount/re-mount nodes on scroll, so the
   // DOM MARK is an unreliable "already done" signal — a re-mounted node is a fresh
@@ -447,7 +447,8 @@
   // multi-paragraph output — crapify in particular is deliberately long and
   // multi-paragraph — flattens into one wall of text. Rendering each newline as
   // a <br> keeps the spacing regardless of the site's white-space CSS. Restore
-  // is unaffected: we snapshot innerHTML before writing and put it back verbatim.
+  // is unaffected: we detach the original child nodes before writing (see
+  // detachChildren) and re-attach those exact nodes verbatim.
   function setBlockText(el, text) {
     if (!text.includes("\n")) {
       el.textContent = text; // single paragraph — fast path, no <br> needed
@@ -458,6 +459,17 @@
       if (i > 0) el.appendChild(document.createElement("br"));
       if (line) el.appendChild(document.createTextNode(line));
     });
+  }
+
+  // Move el's children into a detached fragment WITHOUT reparsing — the node
+  // objects (and any event listeners the site bound to them) are preserved, so
+  // re-appending them later restores full interactivity. Serializing to an
+  // innerHTML string and reparsing on restore would instead mint dead nodes and
+  // drop those listeners. Empties el as a side effect.
+  function detachChildren(el) {
+    const frag = document.createDocumentFragment();
+    while (el.firstChild) frag.appendChild(el.firstChild);
+    return frag;
   }
 
   // ---- non-destructive overlay (scoped React feeds) ----
@@ -509,14 +521,18 @@
 
   // Put an element back to its pre-transform state. For scoped overlays this just
   // reveals the original (which was never modified). For the in-place path we
-  // usually have the exact original markup (`html`); for the rare case where we
-  // only recovered the source text (a re-mount that arrived already showing our
-  // output), we render that text instead so "Normal" is never left transformed.
+  // usually hold the original child nodes detached (`frag`) and re-attach those
+  // exact nodes — preserving their event listeners/interactivity; for the rare
+  // case where we only recovered the source text (a re-mount that arrived already
+  // showing our output), we render that text instead so "Normal" is never left
+  // transformed.
   function restoreEl(el, snap) {
     if (!snap) return;
     if (snap.overlay) removeOverlay(el);
-    else if (snap.html != null) el.innerHTML = snap.html;
-    else if (snap.text != null) setBlockText(el, snap.text);
+    else if (snap.frag != null) {
+      el.textContent = ""; // clear our written text, then re-attach the originals
+      el.appendChild(snap.frag);
+    } else if (snap.text != null) setBlockText(el, snap.text);
   }
 
   // Inject the loader's pulse animation once. Opacity-only so it can't clash with
@@ -547,13 +563,14 @@
           b.el.setAttribute(MARK, "1");
           continue;
         }
-        if (!originals.has(b.el)) originals.set(b.el, { html: b.el.innerHTML });
         // Reserve the block's current height for the duration of the loader.
         // Otherwise a tall post collapsing to a one-line "cooking" placeholder
         // (and then re-growing to the result) reflows the page twice mid-scroll.
         // With the height pinned, geometry stays put until the final text lands
         // and we clear it — a single, anchored reflow instead of a dance.
+        // Measure BEFORE detaching: detachChildren empties the block.
         const h = b.el.getBoundingClientRect().height;
+        if (!originals.has(b.el)) originals.set(b.el, { frag: detachChildren(b.el) });
         if (h) b.el.style.minHeight = h + "px";
         b.el.setAttribute(MARK, "1");
         b.el.classList.add(LOADING_CLASS);
@@ -691,7 +708,7 @@
 
         // Snapshot how to restore, only if we didn't already (a loader would have).
         if (!originals.has(b.el)) {
-          originals.set(b.el, NONDESTRUCTIVE ? { overlay: true } : { html: b.el.innerHTML });
+          originals.set(b.el, NONDESTRUCTIVE ? { overlay: true } : { frag: detachChildren(b.el) });
         }
         if (NONDESTRUCTIVE) {
           renderOverlay(b.el, next, false); // reuses the loader node if present
