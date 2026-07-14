@@ -1,0 +1,92 @@
+/* Privacy policy page layout — reuses tokens/base/components, adds
+   long-form prose rhythm on top of the site's "chunky sticker" language. */
+
+.legal {
+  padding-block: clamp(3rem, 6vw, 4.5rem) clamp(4rem, 8vw, 6rem);
+}
+
+.legal-header {
+  max-width: 42rem;
+  margin-bottom: clamp(2.25rem, 5vw, 3rem);
+}
+
+.legal-title {
+  margin-bottom: 0.6rem;
+  font-size: clamp(2.3rem, 5vw, 3.4rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.legal-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.legal-tldr {
+  max-width: 42rem;
+  margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+  padding: 1.25rem 1.5rem;
+  border: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--decrap-tint);
+  box-shadow: var(--shadow-decrap);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.legal-body {
+  display: flex;
+  max-width: 42rem;
+  flex-direction: column;
+  gap: clamp(2rem, 4vw, 2.75rem);
+}
+
+.legal-body h2 {
+  margin-bottom: 0.75rem;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.legal-body p,
+.legal-body li {
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.legal-body p + p {
+  margin-top: 0.75rem;
+}
+
+.legal-body strong {
+  color: var(--ink);
+}
+
+.legal-body ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.legal-body a {
+  color: var(--decrap-line);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.legal-body a:hover {
+  color: var(--crap);
+}
+
+.legal-contact {
+  padding: 1.25rem 1.5rem;
+  border: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--crap-tint);
+  box-shadow: var(--shadow-crap);
+}

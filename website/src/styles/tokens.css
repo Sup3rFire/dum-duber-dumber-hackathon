@@ -1,0 +1,52 @@
+/*
+  Design tokens for the Cut the Crap website.
+
+  Colors are taken directly from the extension's own popup UI
+  (extension/popup.html) so the site and the product look like the same
+  thing:
+    --crap   #7a4b21  — crapify / pile-on
+    --decrap #b59a00  — decrapify / cut
+    --ink    #1a1a1a  — text + borders
+    --muted  #666     — secondary text
+*/
+
+:root {
+  color-scheme: light;
+
+  /* Brand — matches extension/popup.html exactly */
+  --ink: #1a1a1a;
+  --muted: #666666;
+  --crap: #7a4b21; /* crapify (pile on) */
+  --decrap: #b59a00; /* decrapify (cut) */
+  --focus: #3b78e7; /* same focus-ring color as the popup */
+
+  /* Soft tints, derived from the brand colors (never hand-picked hues) */
+  --crap-tint: color-mix(in srgb, var(--crap) 14%, white);
+  --decrap-tint: color-mix(in srgb, var(--decrap) 16%, white);
+  --crap-line: color-mix(in srgb, var(--crap) 55%, var(--ink));
+  --decrap-line: color-mix(in srgb, var(--decrap) 55%, var(--ink));
+
+  /* Surfaces */
+  --paper: #fffaf1;
+  --panel: #ffffff;
+  --panel-dark: #211d17;
+
+  /* Type */
+  --font-display:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: var(--font-display);
+  --font-accent: Georgia, "Times New Roman", serif;
+
+  /* Shape + shadow language ("chunky sticker") */
+  --radius-md: 0.9rem;
+  --radius-sm: 0.5rem;
+  --line: 2px solid var(--ink);
+  --shadow-crap: 0.4rem 0.4rem 0 var(--crap);
+  --shadow-decrap: 0.4rem 0.4rem 0 var(--decrap);
+  --shadow-ink: 0.4rem 0.4rem 0 var(--ink);
+
+  /* Motion */
+  --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-med: 400ms;
+}

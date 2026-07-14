@@ -1,0 +1,384 @@
+/* Reusable UI atoms */
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 0.9rem;
+  color: var(--crap);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.115em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.accent {
+  color: var(--decrap-line);
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* ---- brand ---- */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.brand-mark {
+  width: 2.3rem;
+  height: 2.3rem;
+  border: var(--line);
+  /* 21% matches the rounded-square shape already baked into the source
+     PNG's own transparency (measured from the file, not eyeballed) — any
+     other radius clips into the art or leaves a background-colored gap
+     between the box's corner and the image's actual rounded silhouette. */
+  border-radius: 21%;
+  object-fit: cover;
+  transform: rotate(-4deg);
+}
+
+.brand-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+/* ---- pill / chip ---- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip--crap {
+  background: var(--crap);
+  color: #fff;
+}
+
+.chip--decrap {
+  background: var(--decrap);
+  color: var(--ink);
+}
+
+/* ---- "coming soon" store badge ---- */
+
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.1rem;
+  border: 2px dashed var(--ink);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.footer-link {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.footer-link:hover {
+  color: var(--ink);
+}
+
+.store-badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--decrap-line);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+/* ---- mode picker (CSS-only, three-way, mirrors the popup) ---- */
+
+.mode-demo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 0;
+}
+
+.mode-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.mode-pill {
+  flex: 1 1 0;
+  min-width: 5.5rem;
+  padding: 0.75rem 0.6rem;
+  border: var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
+  user-select: none;
+}
+
+.mode-pill--crap {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right-width: 1px;
+}
+
+.mode-pill--normal {
+  border-left-width: 1px;
+  border-right-width: 1px;
+}
+
+.mode-pill--decrap {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left-width: 1px;
+}
+
+#demo-crap:checked + .mode-pill--crap {
+  background: var(--crap);
+  color: #fff;
+}
+
+#demo-normal:checked + .mode-pill--normal {
+  background: var(--ink);
+  color: #fff;
+}
+
+#demo-decrap:checked + .mode-pill--decrap {
+  background: var(--decrap);
+  color: var(--ink);
+}
+
+.mode-input:focus-visible + .mode-pill {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.mode-example {
+  flex-basis: 100%;
+  display: none;
+  margin-top: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+#demo-normal:checked ~ .mode-example--normal,
+#demo-crap:checked ~ .mode-example--crap,
+#demo-decrap:checked ~ .mode-example--decrap {
+  display: block;
+}
+
+.mode-example--crap {
+  border-color: var(--crap);
+  box-shadow: var(--shadow-crap);
+}
+
+.mode-example--decrap {
+  border-color: var(--decrap);
+  box-shadow: var(--shadow-decrap);
+}
+
+.mode-example-hint {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ---- comparison cards (demo section) ---- */
+
+.comparison-card {
+  padding: 1.35rem;
+  border: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.comparison-card--before {
+  background: color-mix(in srgb, var(--muted) 8%, var(--panel));
+}
+
+.comparison-card--after-crap {
+  border-color: var(--crap);
+  background: var(--crap-tint);
+  box-shadow: var(--shadow-crap);
+}
+
+.comparison-card--after-decrap {
+  border-color: var(--decrap);
+  background: var(--decrap-tint);
+  box-shadow: var(--shadow-decrap);
+}
+
+/* the real crapify output runs to a dozen-plus short paragraphs on purpose
+   — that flood of near-empty sentences next to a one-line "before" card
+   *is* the joke, so we shrink the type rather than trim the text */
+.comparison-card--longform blockquote {
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.comparison-card--longform blockquote p {
+  margin: 0 0 0.75em;
+}
+
+.comparison-card--longform blockquote p:last-child {
+  margin-bottom: 0;
+  color: var(--crap);
+}
+
+.card-label {
+  margin-bottom: 1rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.comparison-card blockquote {
+  margin: 0;
+  font-size: clamp(0.98rem, 1.6vw, 1.15rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+}
+
+.comparison-card--before blockquote {
+  color: #6b6459;
+}
+
+.comparison-arrow {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.comparison-arrow span {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.comparison-arrow small {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.direction-block--crap .comparison-arrow {
+  color: var(--crap);
+}
+
+.direction-block--decrap .comparison-arrow {
+  color: var(--decrap-line);
+}
+
+/* ---- feature cards ---- */
+
+.feature-card {
+  padding: 1.5rem;
+  border: var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  transition:
+    transform var(--dur-fast) var(--ease-snap),
+    box-shadow var(--dur-fast) var(--ease-snap);
+}
+
+.feature-card:nth-of-type(odd) {
+  box-shadow: var(--shadow-crap);
+}
+
+.feature-card:nth-of-type(even) {
+  box-shadow: var(--shadow-decrap);
+}
+
+.feature-card:hover {
+  transform: translate(-0.15rem, -0.15rem);
+}
+
+.feature-card:nth-of-type(odd):hover {
+  box-shadow: 0.55rem 0.55rem 0 var(--crap);
+}
+
+.feature-card:nth-of-type(even):hover {
+  box-shadow: 0.55rem 0.55rem 0 var(--decrap);
+}
+
+.feature-card-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-bottom: 1rem;
+  border: var(--line);
+  border-radius: 50%;
+  font-size: 1.15rem;
+}
+
+.feature-card h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.feature-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-badge-dot {
+    animation: none;
+  }
+}

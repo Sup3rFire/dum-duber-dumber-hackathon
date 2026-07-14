@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1a1a1a" />
+    <meta
+      name="description"
+      content="Cut the Crap privacy policy: no developer backend, no telemetry, no page text or URLs stored — your provider API key and page text are only ever sent to the AI provider you choose."
+    />
+    <title>Privacy Policy — Cut the Crap</title>
+    <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="icon" href="/favicon-256.png" sizes="256x256" type="image/png" />
+    <link rel="apple-touch-icon" href="/favicon-256.png" />
+    <script type="module" src="/src/privacy.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="shell">
+      <header class="topbar wrap">
+        <a class="brand" href="/" aria-label="Cut the Crap home">
+          <img
+            class="brand-mark"
+            src="/CutTheCrap-icon-2048.png"
+            alt=""
+            width="2048"
+            height="2048"
+          />
+          <span class="brand-name">Cut the Crap</span>
+        </a>
+        <span class="chip">Privacy Policy</span>
+      </header>
+
+      <main id="main">
+        <section class="legal wrap" aria-labelledby="legal-title">
+          <div class="legal-header">
+            <p class="eyebrow">Legal</p>
+            <h1 id="legal-title" class="legal-title">Privacy Policy</h1>
+            <p class="legal-meta">Effective &amp; last updated: 2026-07-14</p>
+          </div>
+
+          <p class="legal-tldr">
+            <strong>TL;DR:</strong> Cut the Crap has no server of its own —
+            nothing you do in the extension is sent to us. On the sites
+            <em>you</em> switch on, page text is sent only to the AI provider
+            you configured, using the API key you provided (bring your own
+            key). We don't run analytics, tracking, or ads, and we never
+            request access to "all your data on all websites."
+          </p>
+
+          <div class="legal-body">
+            <section aria-labelledby="purpose-title">
+              <h2 id="purpose-title">1. What this extension does</h2>
+              <p>
+                Cut the Crap rewrites the prose on a webpage — either
+                compressing bloated, jargon-heavy text down to the plain
+                point ("decrapify"), or inflating a plain statement into
+                corporate waffle ("crapify"). That's its one job. It runs
+                only on sites you explicitly turn on; every site starts on
+                "Normal" (off).
+              </p>
+            </section>
+
+            <section aria-labelledby="handles-title">
+              <h2 id="handles-title">2. What the extension handles</h2>
+              <p><strong>Page text.</strong> On a site you've enabled, the
+                extension reads the visible prose on the page and sends it to
+                the AI provider you configured, so it can be rewritten. That
+                text is kept in memory only — it is never written to disk and
+                never sent to us. Page URLs are never sent or stored either;
+                the extension identifies a page load with a random,
+                throwaway session id, not the URL.
+              </p>
+              <p><strong>Your API key.</strong> Your provider API key is
+                stored locally in your browser
+                (<code>storage.local</code>) and is sent only to that
+                provider's own API — never to us.
+              </p>
+              <p><strong>Settings and per-site state.</strong> Your chosen
+                provider/model and the list of hostnames you've enabled are
+                stored locally in your browser, so your preferences persist
+                between sessions.
+              </p>
+              <p><strong>Usage stats.</strong> The popup shows lifetime
+                totals — words cut, words piled on, pages processed — stored
+                locally as plain numbers. These never leave your device.
+              </p>
+            </section>
+
+            <section aria-labelledby="dontdo-title">
+              <h2 id="dontdo-title">3. What we don't do</h2>
+              <ul>
+                <li>We don't operate a server, so we never receive your page
+                  text, URLs, or API key.</li>
+                <li>No analytics, tracking, or advertising of any kind.</li>
+                <li>We don't sell or share data — there's no data of yours on
+                  our end to sell or share.</li>
+                <li>No blanket "read and change all your data on all
+                  websites" permission. Access to a site is requested
+                  individually, only when you turn that site on.</li>
+              </ul>
+            </section>
+
+            <section aria-labelledby="providers-title">
+              <h2 id="providers-title">4. Third-party AI providers</h2>
+              <p>
+                When you enable a site, its page text and your API key are
+                sent directly from your browser to the AI provider you
+                selected in Settings — OpenAI, Anthropic, Google, or MiniMax.
+                That transmission is between your browser and the provider;
+                we are not a party to it. Each provider's handling of that
+                data is governed by their own privacy policy:
+              </p>
+              <ul>
+                <li>
+                  <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener">OpenAI Privacy Policy</a>
+                </li>
+                <li>
+                  <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener">Anthropic Privacy Policy</a>
+                </li>
+                <li>
+                  <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Google Gemini API Additional Terms of Service</a>
+                </li>
+                <li>
+                  <a href="https://platform.minimax.io/protocol/privacy-policy" target="_blank" rel="noopener">MiniMax API Privacy Policy</a>
+                </li>
+              </ul>
+            </section>
+
+            <section aria-labelledby="permissions-title">
+              <h2 id="permissions-title">5. Permissions, in plain language</h2>
+              <ul>
+                <li><strong>Storage</strong> — to save your settings, API
+                  key, per-site on/off list, and usage stats locally.</li>
+                <li><strong>Active Tab</strong> — to read the current tab's
+                  hostname when you open the popup, so the extension knows
+                  which site's setting to show/change.</li>
+                <li><strong>Scripting</strong> — to inject the rewriter into
+                  a tab, but only after you've enabled that site.</li>
+                <li><strong>Per-site host access</strong> (optional) —
+                  requested one origin at a time, only on the click that
+                  turns a site on. The extension is never granted access to
+                  "all sites" as a block.</li>
+              </ul>
+            </section>
+
+            <section aria-labelledby="retention-title">
+              <h2 id="retention-title">6. Data storage &amp; retention</h2>
+              <p>
+                Everything the extension stores — settings, API key,
+                per-site state, stats — lives only in your browser's local
+                storage on your device; none of it syncs to any account of
+                ours or anyone else's. The in-memory cache of rewritten text
+                is cleared automatically when the browser or the extension's
+                background process restarts. Removing the extension, or
+                clearing its storage from your browser, deletes all of it.
+              </p>
+            </section>
+
+            <section aria-labelledby="security-title">
+              <h2 id="security-title">7. Security</h2>
+              <p>
+                Your API key is stored using your browser's built-in local
+                storage. Keep your device and browser profile secure, since
+                anyone with access to them could access data stored there —
+                the same as for any other browser extension or website login.
+              </p>
+            </section>
+
+            <section aria-labelledby="children-title">
+              <h2 id="children-title">8. Children's privacy</h2>
+              <p>
+                Cut the Crap is not directed at children under 13 and we do
+                not knowingly collect data from them — in fact, we don't
+                collect data from anyone, per the sections above.
+              </p>
+            </section>
+
+            <section aria-labelledby="changes-title">
+              <h2 id="changes-title">9. Changes to this policy</h2>
+              <p>
+                If this policy changes, the "last updated" date at the top of
+                this page will change with it.
+              </p>
+            </section>
+
+            <section class="legal-contact" aria-labelledby="contact-title">
+              <h2 id="contact-title">10. Contact</h2>
+              <p>
+                Questions about this policy? Email
+                <a href="mailto:privacy@superfi.re">privacy@superfi.re</a>.
+              </p>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer wrap">
+        <p class="site-footer-brand">
+          <strong>Cut the Crap</strong> · say it straight, or say it
+          corporate.
+        </p>
+        <a class="chip" href="/">← Back to home</a>
+      </footer>
+    </div>
+  </body>
+</html>

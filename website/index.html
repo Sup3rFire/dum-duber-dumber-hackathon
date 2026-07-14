@@ -3,19 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1a1a1a" />
     <meta
       name="description"
-      content="Decrapify turns bloated corporate web prose into the one honest sentence it was trying to say."
+      content="Cut the Crap is a browser extension that rewrites any page's prose — toward the one honest sentence it was trying to say, or into full corporate bloat. Bring your own API key."
     />
-    <title>Cut the Crap — Decrapify the web</title>
-    <link rel="icon" href="/CutTheCrap-icon-2048.png" type="image/png" />
-    <link rel="stylesheet" href="./styles.css" />
+    <title>Cut the Crap — say it straight, or say it corporate</title>
+    <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="icon" href="/favicon-256.png" sizes="256x256" type="image/png" />
+    <link rel="apple-touch-icon" href="/favicon-256.png" />
+    <script type="module" src="/src/main.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-    <div class="site-shell" id="top">
-      <header class="site-header">
+    <div class="shell">
+      <header class="topbar wrap">
         <a class="brand" href="#top" aria-label="Cut the Crap home">
           <img
             class="brand-mark"
@@ -24,30 +27,86 @@
             width="2048"
             height="2048"
           />
-          <span>Cut the Crap</span>
+          <span class="brand-name">Cut the Crap</span>
         </a>
-        <span class="mode-badge">Decrapify mode</span>
+        <span class="chip">Two-way rewrite</span>
       </header>
 
-      <main id="main-content">
-        <section class="hero" aria-labelledby="hero-title">
+      <main id="main">
+        <section class="hero wrap" id="top" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <p class="eyebrow">For corporate-survival specialists</p>
-            <h1 id="hero-title">Cut the <em>corporate</em> crap.</h1>
+            <p class="eyebrow">Browser extension · Bring your own API key</p>
+            <h1 id="hero-title" class="hero-title">
+              Cut the corporate <span class="accent">crap.</span><br />
+              Or pile it on.
+            </h1>
             <p class="hero-lede">
-              Decrapify turns bloated, jargon-heavy web prose into the one honest
-              sentence it was trying to say.
+              A browser extension that rewrites any page's prose — toward the
+              one honest sentence it was trying to say, or into a full
+              corporate saga. Your call, per site.
             </p>
-            <a
-              class="download-button"
-              href="/cut-the-crap-firefox.zip"
-              download="cut-the-crap-firefox.zip"
-            >
-              <span>Download the ZIP</span>
-              <span aria-hidden="true">↓</span>
-            </a>
-            <p class="download-note">
-              Firefox 115+ · Temporary add-on · Bring your own OpenAI API key
+
+            <div class="mode-demo-wrap">
+              <span class="mode-demo-label" id="mode-demo-label">Try a mode</span>
+              <fieldset
+                class="mode-demo"
+                aria-labelledby="mode-demo-label"
+              >
+                <legend class="sr-only">Preview a mode</legend>
+                <input
+                  type="radio"
+                  name="demo-mode"
+                  id="demo-crap"
+                  class="mode-input"
+                  value="crap"
+                />
+                <label for="demo-crap" class="mode-pill mode-pill--crap"
+                  >Crapify</label
+                >
+                <input
+                  type="radio"
+                  name="demo-mode"
+                  id="demo-normal"
+                  class="mode-input"
+                  value="normal"
+                  checked
+                />
+                <label for="demo-normal" class="mode-pill mode-pill--normal"
+                  >Normal</label
+                >
+                <input
+                  type="radio"
+                  name="demo-mode"
+                  id="demo-decrap"
+                  class="mode-input"
+                  value="decrap"
+                />
+                <label for="demo-decrap" class="mode-pill mode-pill--decrap"
+                  >Decrapify</label
+                >
+
+                <p class="mode-example mode-example--normal">
+                  “Incredibly humbled and grateful to share that I've accepted a new role as Senior Growth Marketing Manager at a
+                  category-defining startup! This journey wouldn't have been possible without the incredible mentors, teammates, and
+                  friends who believed in me along the way. I'm beyond excited to roll up my sleeves and dive into this exciting new
+                  chapter, bringing my passion for data-driven storytelling to a team that's truly disrupting the space. Onwards and
+                  upwards!”
+                </p>
+                <p class="mode-example mode-example--crap">
+                  “🚀 Absolutely BUZZING to share I just got a new marketing role!! Grinding in silence, moves in silence, but today? We
+                  eating. 🔥 Manifested this, prayed on it, put in the WORK — synergizing my personal brand with relentless value-add
+                  energy, and the universe said say less. Forever grateful for this blessed season of unprecedented growth. This isn't a
+                  job, it's a CALLING. 💯”
+                </p>
+                <p class="mode-example mode-example--decrap">
+                  “I got a new marketing job.”
+                </p>
+              </fieldset>
+            </div>
+
+            <p class="store-badge">
+              <span class="store-badge-dot" aria-hidden="true"></span>
+              Coming soon to the Chrome Web Store &amp; Firefox Add-ons
             </p>
           </div>
 
@@ -61,100 +120,194 @@
                 height="2048"
               />
             </div>
-            <span class="hero-caption">decrapify the web</span>
           </div>
         </section>
 
-        <section class="proof" aria-labelledby="proof-title">
-          <div class="proof-heading">
-            <p class="eyebrow">Before → after</p>
-            <h2 id="proof-title">One honest sentence, please.</h2>
+        <section class="demo wrap" aria-labelledby="demo-title">
+          <div class="demo-heading reveal">
+            <p class="eyebrow">One slider, two directions</p>
+            <h2 id="demo-title">Same button. Opposite instincts.</h2>
             <p>
-              You know the kind of post. Decrapify makes it say the quiet part
-              out loud.
+              Point it one way and bloated prose collapses to the point.
+              Point it the other and a plain sentence grows a LinkedIn
+              personality. Both examples below are real input/output pairs,
+              lifted straight from the extension's own prompt — not written
+              for this page.
             </p>
           </div>
 
-          <div class="comparison" aria-label="A Decrapify transformation example">
-            <article class="comparison-card before-card">
-              <p class="card-label">The corporate version</p>
-              <blockquote>
-                “I’m thrilled to announce that I’m embarking on an exciting new
-                chapter in my professional journey…”
-              </blockquote>
-            </article>
-
-            <div class="comparison-arrow" aria-hidden="true">
-              <span>↓</span>
-              <small>decrapify</small>
+          <div class="demo-directions">
+            <div
+              class="direction-block direction-block--decrap reveal"
+              aria-labelledby="direction-decrap-title"
+            >
+              <div class="direction-block-head">
+                <span class="chip chip--decrap" id="direction-decrap-title"
+                  >Decrapify</span
+                >
+              </div>
+              <div class="direction-pair">
+                <article class="comparison-card comparison-card--before">
+                  <p class="card-label">The job posting</p>
+                  <blockquote>
+                    “This is an unpaid internship, but it's an incredible
+                    opportunity to learn and grow in a fast-paced, dynamic
+                    environment. You'll wear many hats, thrive under
+                    pressure, and gain unparalleled real-world experience as
+                    part of a team that's more like a family.”
+                  </blockquote>
+                </article>
+                <div class="comparison-arrow" aria-hidden="true">
+                  <span>↓</span>
+                  <small>decrapify</small>
+                </div>
+                <article
+                  class="comparison-card comparison-card--after-decrap"
+                >
+                  <p class="card-label">What it actually means</p>
+                  <blockquote>
+                    “You will work full-time for free, doing several jobs,
+                    with no training.”
+                  </blockquote>
+                </article>
+              </div>
             </div>
 
-            <article class="comparison-card after-card">
-              <p class="card-label">The actual point</p>
-              <blockquote>“I got a new job.”</blockquote>
-            </article>
+            <div
+              class="direction-block direction-block--crap reveal"
+              aria-labelledby="direction-crap-title"
+            >
+              <div class="direction-block-head">
+                <span class="chip chip--crap" id="direction-crap-title"
+                  >Crapify</span
+                >
+              </div>
+              <div class="direction-pair">
+                <article class="comparison-card comparison-card--before">
+                  <p class="card-label">What actually happened</p>
+                  <blockquote>“We shipped the feature two weeks late.”</blockquote>
+                </article>
+                <div class="comparison-arrow" aria-hidden="true">
+                  <span>↓</span>
+                  <small>crapify</small>
+                </div>
+                <article
+                  class="comparison-card comparison-card--after-crap comparison-card--longform"
+                >
+                  <p class="card-label">The LinkedIn version</p>
+                  <blockquote>
+                    <p>Two weeks.</p>
+                    <p>That's how late we shipped.</p>
+                    <p>And I would do it again.</p>
+                    <p>
+                      Here's what nobody tells you about velocity: it's a
+                      vanity metric.
+                    </p>
+                    <p>
+                      What we were really doing was ideating, iterating, and
+                      — yes — boiling the ocean, so that our end users could
+                      one day experience frictionless, best-in-class value
+                      at scale. 📈
+                    </p>
+                    <p>Were there late nights? Yes.</p>
+                    <p>Were there moments of doubt? Absolutely.</p>
+                    <p>
+                      Did we double-click on the low-hanging fruit and move
+                      the needle on our north star? Reader, we did. 💪
+                    </p>
+                    <p>
+                      I channelled my inner Bombardiro Crocodilo and held
+                      the line. 🐊🔥
+                    </p>
+                    <p>
+                      Shipping late isn't failure. It's just success with a
+                      longer runway. 📈✨
+                    </p>
+                    <p>Read that again.</p>
+                    <p>
+                      Grateful to this team. You know who you are. ❤️🙌
+                    </p>
+                    <p>PS: Save this post.</p>
+                    <p>#Learnings #GrowthMindset #RadicalOwnership #Blessed</p>
+                  </blockquote>
+                </article>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section class="setup" aria-labelledby="setup-title">
-          <div class="setup-heading">
-            <p class="eyebrow">Setup</p>
-            <h2 id="setup-title">Four steps. Zero synergy.</h2>
+        <section class="features wrap" aria-labelledby="features-title">
+          <div class="features-heading reveal">
+            <p class="eyebrow">Why it doesn't suck</p>
+            <h2 id="features-title">Built to not be annoying.</h2>
             <p>
-              Install the temporary Firefox add-on, add your key, then point
-              Decrapify at the web’s most needlessly verbose corners.
+              No blanket permissions, no lock-in to one AI provider, nothing
+              rewritten without your say-so.
             </p>
           </div>
 
-          <ol class="setup-steps">
-            <li>
-              <span class="step-number">1</span>
-              <h3>Download &amp; unzip</h3>
+          <div class="feature-grid">
+            <article class="feature-card reveal">
+              <span class="feature-card-glyph" aria-hidden="true">⇄</span>
+              <h3>Two directions, one slider</h3>
               <p>
-                Download the ZIP above and extract it somewhere you can keep it.
+                Crapify · Normal · Decrapify. Pick a lane per site — it
+                remembers your preference per site, so you set it once.
               </p>
-            </li>
-            <li>
-              <span class="step-number">2</span>
-              <h3>Load it in Firefox</h3>
-              <p>
-                Open <code>about:debugging</code> → This Firefox → Load Temporary
-                Add-on, then select the extracted <code>manifest.json</code>.
-              </p>
-            </li>
-            <li>
-              <span class="step-number">3</span>
-              <h3>Add your API key</h3>
-              <p>
-                In the extension popup, open Settings / API key, paste your
-                OpenAI API key, and save it locally in Firefox.
-              </p>
-            </li>
-            <li>
-              <span class="step-number">4</span>
-              <h3>Decrapify a page</h3>
-              <p>
-                Open the toolbar popup and switch the current site to
-                Decrapify. It stays off everywhere else until you enable it.
-              </p>
-            </li>
-          </ol>
+            </article>
 
-          <aside class="setup-notice">
-            <p>
-              <strong>Temporary means temporary:</strong> Firefox removes this
-              type of add-on when it restarts, so reload the same
-              <code>manifest.json</code> from <code>about:debugging</code> next
-              time. Your API key is stored locally; page text goes to OpenAI only
-              after you switch a site on.
-            </p>
-          </aside>
+            <article class="feature-card reveal">
+              <span class="feature-card-glyph" aria-hidden="true">🔑</span>
+              <h3>Bring your own key, any model</h3>
+              <p>
+                Plug in OpenAI, Anthropic, Google, or MiniMax. Each provider
+                keeps its own key and model, so switching is instant.
+              </p>
+            </article>
+
+            <article class="feature-card reveal">
+              <span class="feature-card-glyph" aria-hidden="true">🔒</span>
+              <h3>Private by design</h3>
+              <p>
+                No blanket "read every site" permission. A site only gets
+                access once you switch it on — off everywhere else, by
+                default.
+              </p>
+            </article>
+
+            <article class="feature-card reveal">
+              <span class="feature-card-glyph" aria-hidden="true">↺</span>
+              <h3>Seamless &amp; reversible</h3>
+              <p>
+                Rewrites happen in place, closest-to-view first — no page
+                refresh. Flip back to Normal and the original text returns.
+              </p>
+            </article>
+
+            <article class="feature-card reveal">
+              <span class="feature-card-glyph" aria-hidden="true">∞</span>
+              <h3>Works on real pages</h3>
+              <p>
+                Handles infinite scroll and lazily loaded feeds without
+                duplicate rewrites.
+              </p>
+            </article>
+          </div>
         </section>
       </main>
 
-      <footer class="site-footer">
-        <span>Cut the Crap · Decrapify the web</span>
-        <span>Made for pages with too many feelings about “journeys.”</span>
+      <footer class="site-footer wrap">
+        <div class="site-footer-brand-group">
+          <p class="site-footer-brand">
+            <strong>Cut the Crap</strong> · say it straight, or say it
+            corporate.
+          </p>
+          <a class="footer-link" href="/privacy">Privacy Policy</a>
+        </div>
+        <p class="store-badge">
+          <span class="store-badge-dot" aria-hidden="true"></span>
+          Coming soon to the Chrome Web Store &amp; Firefox Add-ons
+        </p>
       </footer>
     </div>
   </body>
