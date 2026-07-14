@@ -17,10 +17,37 @@ Three stops total — **Crapify · Normal · Decrapify** — with Normal in the 
 
 Firefox-first (Manifest V3), portable to Chrome with minimal changes.
 
+## Repository layout
+
+This is an npm-workspaces monorepo with two packages:
+
+| Path | What it is |
+|---|---|
+| [`extension/`](extension/) | The browser extension itself (loaded unbundled; packaged into a zip for distribution). |
+| [`website/`](website/) | The landing site — a static Vite build, deployable to Cloudflare Pages. |
+
+Repo-wide docs (`README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/`) stay at the root.
+
+## Build & deploy
+
+```sh
+npm install          # installs both workspaces into one root node_modules
+npm run build        # builds the extension zip AND the website
+npm run build:extension   # → extension/dist/cut-the-crap-<version>.zip
+npm run build:website     # → website/dist/ (static, Cloudflare-Pages-ready)
+npm run dev          # runs the website dev server (Vite)
+```
+
+**Cloudflare Pages** (static deploy — no server runtime):
+
+- **Build command:** `npm run build:website`
+- **Build output directory:** `website/dist`
+- **Root directory:** repo root (so the workspace install resolves)
+
 ## Load it into Firefox (temporary add-on)
 
 1. Go to `about:debugging` → **This Firefox** → **Load Temporary Add-on…**
-2. Select `manifest.json` in this folder.
+2. Select `extension/manifest.json`.
 3. Open the extension's **Settings** (via the popup's "Settings / API key" link), pick a **provider** (OpenAI, Anthropic, Google, or MiniMax), and paste that provider's API key. Each provider keeps its own key + model, so you can switch freely without re-entering anything.
 4. Visit a page, click the toolbar icon, then select **Crapify** or **Decrapify** for that site. The first time you enable a site, the browser will prompt for permission to access that one site — the extension has no blanket "access all websites" permission (see [How it works](#how-it-works)).
 
@@ -50,17 +77,20 @@ Note: temporary add-ons are removed when Firefox restarts — re-load before eac
 
 ## Files
 
+All extension source lives under [`extension/`](extension/):
+
 | File | Role |
 |---|---|
-| `manifest.json` | MV3 config (Firefox event page, popup, options) — no static content script; no required host permissions |
-| `content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode. Injected dynamically, only into enabled origins |
-| `prompt.js` | **The voices** — two mode prompts (cut/pile) + few-shot examples. Iterate on the humor here. |
-| `providers.js` | **The backends** — one adapter per LLM (OpenAI/Claude/Gemini/MiniMax): endpoint, headers, body shape, response parsing. Also resolves the per-provider settings schema. |
-| `background.js` | Provider-agnostic LLM calls (mode + provider aware), response cache, lifetime stats, per-site `scripting` injection |
-| `popup.html` / `popup.js` | Per-site mode selector (requests host permission + triggers injection on enable) + lifetime stats |
-| `options.html` / `options.js` | Provider picker + per-provider API key & model |
-| `lib/browser-polyfill.js` | `browser.*` promise API (Firefox native; needed for Chrome) |
-| `icons/` | Placeholder icons (replace later) |
+| `extension/manifest.json` | MV3 config (Firefox event page, popup, options) — no static content script; no required host permissions |
+| `extension/content.js` | Finds prose blocks, swaps/restores text, reacts to the per-site mode. Injected dynamically, only into enabled origins |
+| `extension/prompt.js` | **The voices** — two mode prompts (cut/pile) + few-shot examples. Iterate on the humor here. |
+| `extension/providers.js` | **The backends** — one adapter per LLM (OpenAI/Claude/Gemini/MiniMax): endpoint, headers, body shape, response parsing. Also resolves the per-provider settings schema. |
+| `extension/background.js` | Provider-agnostic LLM calls (mode + provider aware), response cache, lifetime stats, per-site `scripting` injection |
+| `extension/popup.html` / `popup.js` | Per-site mode selector (requests host permission + triggers injection on enable) + lifetime stats |
+| `extension/options.html` / `options.js` | Provider picker + per-provider API key & model |
+| `extension/lib/browser-polyfill.js` | `browser.*` promise API (Firefox native; needed for Chrome) |
+| `extension/icons/` | Placeholder icons (replace later) |
+| `extension/build.mjs` | Cross-platform packager → `extension/dist/*.zip` (dev-only, not shipped) |
 
 ## Tuning the voice
 

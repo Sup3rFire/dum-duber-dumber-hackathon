@@ -1,0 +1,14 @@
+# Dependencies (hoisted to a single root node_modules via npm workspaces)
+node_modules/
+
+# Build output
+dist/
+extension/dist/
+website/dist/
+
+# Build artifacts / stray zips at the repo root
+/*.zip
+
+# Editor / OS cruft
+.DS_Store
+.vscode/

@@ -1,0 +1,12 @@
+{
+  "name": "@cut-the-crap/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cut the Crap — a browser extension that rewrites webpage prose to be brutally honest or hilariously corporate.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1"
+  }
+}

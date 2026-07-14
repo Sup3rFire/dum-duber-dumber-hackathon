@@ -1,0 +1,17 @@
+{
+  "name": "cut-the-crap-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo for the Cut the Crap browser extension and its landing site.",
+  "workspaces": [
+    "extension",
+    "website"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=extension && npm run build --workspace=website",
+    "build:extension": "npm run build --workspace=extension",
+    "build:website": "npm run build --workspace=website",
+    "dev": "npm run dev --workspace=website",
+    "preview": "npm run preview --workspace=website"
+  }
+}
