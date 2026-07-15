@@ -438,11 +438,17 @@
       if (!active || mode !== batchMode) return;
       log("compress response:", resp);
       if (!resp) return applyResults(batch, []); // clear loaders, allow retry
-      if (resp.error === "NO_API_KEY" || resp.error === "NO_HOST_PERMISSION") {
+      if (
+        resp.error === "NO_API_KEY" ||
+        resp.error === "NO_HOST_PERMISSION" ||
+        resp.error === "NO_CONSENT"
+      ) {
         log(
           resp.error === "NO_API_KEY"
             ? "NO API KEY set — open Settings and add your provider API key"
-            : "HOST PERMISSION missing — open Settings and hit Save to grant it"
+            : resp.error === "NO_CONSENT"
+              ? "NO DATA CONSENT recorded — open Settings and agree to the data notice"
+              : "HOST PERMISSION missing — open Settings and hit Save to grant it"
         );
         active = false; // nothing we can do until the user fixes it in Settings
         clearQueue();

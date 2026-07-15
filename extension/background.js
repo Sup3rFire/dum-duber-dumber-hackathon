@@ -13,7 +13,10 @@ log("background worker loaded");
 
 // ---- settings ----
 // Reads the multi-provider schema and folds in the legacy OpenAI-only keys.
-// Returns { provider, apiKey, model } for the ACTIVE provider.
+// Returns { provider, apiKey, model, dataConsentAt } for the ACTIVE provider.
+// dataConsentAt is the Chrome Web Store "prominent disclosure" gate (Settings
+// checkbox, see options.js) — null/undefined until the user has explicitly
+// agreed that page text goes to their chosen provider.
 async function getSettings() {
   const store = await browser.storage.local.get([
     "provider",
@@ -21,8 +24,9 @@ async function getSettings() {
     "models",
     "apiKey",
     "model",
+    "dataConsentAt",
   ]);
-  return CTC_PROVIDERS.resolveSettings(store);
+  return { ...CTC_PROVIDERS.resolveSettings(store), dataConsentAt: store.dataConsentAt || null };
 }
 
 // ---- cache (in-memory only — rewritten page text is never written to disk) ----
@@ -151,10 +155,16 @@ async function callLLM(blocks, provider, apiKey, model, mode) {
 // from results (the content script leaves those blocks untouched) — one batch
 // failing never kills the page.
 async function handleTransform(blocks, mode, session) {
-  const { provider, apiKey, model } = await getSettings();
+  const { provider, apiKey, model, dataConsentAt } = await getSettings();
   const m = mode || CTC_VOICE.DEFAULT_MODE;
   log("transform request:", blocks.length, "block(s), mode:", m, "provider:", provider, "model:", model, "key set:", !!apiKey);
   if (!apiKey) return { error: "NO_API_KEY" };
+  // Chrome Web Store "prominent disclosure" gate: this is the actual egress
+  // point (page text -> the provider), so it's checked here even though
+  // doCompleteEnable() below already blocks a NEW enable without consent —
+  // this second check is what catches an upgrading user who enabled a site
+  // and set a key under an older version, before the consent flag existed.
+  if (!dataConsentAt) return { error: "NO_CONSENT" };
 
   // The provider host is an optional permission granted from the settings page.
   // A legacy user who had a key before this change (or who cleared the grant)
@@ -376,8 +386,14 @@ async function doCompleteEnable() {
   // Same key gate the popup used to run before it could finish an enable
   // itself. Missing key -> open Settings and leave the site on Normal; the
   // permission stays granted, so re-enabling after adding a key won't re-prompt.
-  const { apiKey } = await getSettings();
+  const { apiKey, dataConsentAt } = await getSettings();
   if (!apiKey) {
+    browser.runtime.openOptionsPage();
+    return;
+  }
+  // Same shape as the key gate: no recorded data-consent (Settings checkbox)
+  // -> open Settings and leave the site on Normal, instead of injecting.
+  if (!dataConsentAt) {
     browser.runtime.openOptionsPage();
     return;
   }

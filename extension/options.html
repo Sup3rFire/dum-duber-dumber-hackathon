@@ -58,6 +58,30 @@
         color: #2a8f3c;
         font-size: 13px;
       }
+      #status.warn {
+        color: #b3261e;
+      }
+      .consent-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .consent-row input[type="checkbox"] {
+        width: auto;
+        margin: 3px 0 0;
+        flex: 0 0 auto;
+      }
+      .consent-row label {
+        margin: 0;
+        font-weight: 400;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -78,13 +102,23 @@
       <a id="apiKeyLink" target="_blank" rel="noopener" hidden>Get a key.</a>
     </div>
 
+    <div class="consent-row">
+      <input type="checkbox" id="dataConsent" />
+      <label for="dataConsent">
+        I understand and agree that page text from sites I enable is sent to
+        my chosen AI provider to be rewritten, using the API key above.
+        Nothing is sent to Cut the Crap's developer.
+        <a href="https://cutthecrap.superfi.re/privacy" target="_blank" rel="noopener">Read the privacy policy.</a>
+      </label>
+    </div>
+
     <label for="model">Model</label>
     <input id="model" type="text" list="modelList" placeholder="model name" />
     <datalist id="modelList"></datalist>
     <div class="hint" id="modelHint">Any model this provider supports.</div>
 
     <div>
-      <button id="save">Save</button>
+      <button id="save" disabled>Save</button>
       <span id="status"></span>
     </div>
 

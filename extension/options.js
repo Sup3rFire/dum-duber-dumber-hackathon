@@ -12,11 +12,16 @@ const apiKeyLinkEl = document.getElementById("apiKeyLink");
 const modelEl = document.getElementById("model");
 const modelListEl = document.getElementById("modelList");
 const statusEl = document.getElementById("status");
+const dataConsentEl = document.getElementById("dataConsent");
+const saveEl = document.getElementById("save");
 
 // Working copy of every provider's key/model, so switching the dropdown never
 // loses what you typed for another provider before you Save.
 let apiKeys = {};
 let models = {};
+// When consent was first given (epoch ms), or null if never given. Preserved
+// across saves once set — re-saving settings doesn't reset the timestamp.
+let dataConsentAt = null;
 
 function populateProviders() {
   providerEl.replaceChildren();
@@ -70,10 +75,12 @@ async function load() {
     "models",
     "apiKey",
     "model",
+    "dataConsentAt",
   ]);
 
   apiKeys = { ...(store.apiKeys || {}) };
   models = { ...(store.models || {}) };
+  dataConsentAt = store.dataConsentAt || null;
 
   // Fold the legacy OpenAI-only fields into the working copy.
   if (store.apiKey && !apiKeys.openai) apiKeys.openai = store.apiKey;
@@ -82,9 +89,31 @@ async function load() {
   populateProviders();
   providerEl.value = PROVIDERS[store.provider] ? store.provider : DEFAULT_PROVIDER;
   renderProvider();
+
+  dataConsentEl.checked = !!dataConsentAt;
+  updateSaveEnabled();
+}
+
+// Save is a hard gate on consent — Chrome Web Store policy requires an
+// explicit in-product opt-in (not just a privacy-policy document) before page
+// text is sent to a third party, so an unchecked box blocks Save entirely
+// rather than just warning after the fact.
+function updateSaveEnabled() {
+  saveEl.disabled = !dataConsentEl.checked;
 }
 
 async function save() {
+  // Hard gate: refuse to save (and so refuse to let any site be enabled —
+  // background.js checks this same flag) until the box is checked. This is
+  // the "prominent disclosure" the Chrome Web Store requires to live in the
+  // product's own UI, not just in the privacy policy.
+  if (!dataConsentEl.checked) {
+    statusEl.textContent = "Please agree to the data notice above to continue.";
+    statusEl.classList.add("warn");
+    return;
+  }
+  statusEl.classList.remove("warn");
+
   captureCurrent();
 
   // The provider hosts are optional_host_permissions, so a fresh install ships
@@ -105,10 +134,15 @@ async function save() {
     }
   }
 
+  // Only stamp the timestamp the first time — re-saving settings later (a new
+  // key, a different model) shouldn't reset when consent was originally given.
+  if (!dataConsentAt) dataConsentAt = Date.now();
+
   await browser.storage.local.set({
     provider: providerEl.value,
     apiKeys,
     models,
+    dataConsentAt,
   });
   statusEl.textContent = "Saved";
   setTimeout(() => (statusEl.textContent = ""), 1500);
@@ -120,6 +154,7 @@ async function save() {
 apiKeyEl.addEventListener("input", captureCurrent);
 modelEl.addEventListener("input", captureCurrent);
 providerEl.addEventListener("change", renderProvider);
+dataConsentEl.addEventListener("change", updateSaveEnabled);
 
-document.getElementById("save").addEventListener("click", save);
+saveEl.addEventListener("click", save);
 load();
